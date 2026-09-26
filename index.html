@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2F3EE">
+<title>Včelí deník</title>
+<meta name="color-scheme" content="light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Včelí deník">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Včelí deník: bílá, propolis a med. Barvu dodávají natřené úly. */
+  --bg:#F2F3EE; --surface:#FFFFFF; --surface-2:#F6F5F1;
+  --ink:#211A13; --ink-soft:#6B645A; --line:#E3E1D9; --line-strong:#CFCBBF;
+  --honey:#F2A916; --honey-deep:#A96A00; --honey-tint:#FFF4DA; --on-honey:#211A13;
+  --primary:#211A13; --on-primary:#FFFFFF; --primary-tint:#FFF4DA;
+  --ok:#2E7A4C; --ok-bg:#E3F2E8; --warn:#B26A00; --warn-bg:#FFF1D6; --bad:#C0392B; --bad-bg:#FBE4E1;
+  --focus:#2F6FD6;
+  --shadow:0 1px 2px rgba(33,26,19,.06), 0 4px 14px rgba(33,26,19,.06);
+  --font:-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display:"Bricolage Grotesque", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  --scale:1;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{font-size:calc(16px * var(--scale)); height:100%; scroll-padding-top:env(safe-area-inset-top,0px); -webkit-text-size-adjust:100%}
+body{margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--font); line-height:1.45; -webkit-tap-highlight-color:transparent; -webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit; color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+[hidden]{display:none !important}
+svg.ic{width:1.25em; height:1.25em; flex:none; vertical-align:-.22em; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+
+/* ---------- top bar (only on sub-pages) ---------- */
+.topbar{position:sticky; top:env(safe-area-inset-top,0px); z-index:5; display:flex; align-items:center; gap:.5rem; min-height:3.25rem; padding:.3rem .6rem;
+  background:rgba(242,243,238,.88); -webkit-backdrop-filter:saturate(1.4) blur(14px); backdrop-filter:saturate(1.4) blur(14px); border-bottom:1px solid var(--line)}
+.topbar .spacer{flex:1}
+.link-btn{display:inline-flex; align-items:center; gap:.2rem; background:none; border:0; padding:.5rem .6rem; min-height:2.75rem; border-radius:10px; font-weight:600; font-size:1rem; color:var(--ink)}
+.link-btn:active{background:rgba(33,26,19,.06)}
+
+main{max-width:36rem; margin:0 auto; padding:1.25rem 1.1rem 9rem}
+h1{font-family:var(--display); font-size:2rem; line-height:1.08; letter-spacing:-.02em; font-weight:700; margin:.4rem 0 .9rem}
+h2{font-size:1.05rem; font-weight:700; margin:2rem 0 .75rem; letter-spacing:-.005em}
+p{margin:.45rem 0}
+.muted{color:var(--ink-soft)}
+.hint{color:var(--ink-soft); font-size:.88rem; margin:.4rem 0 0}
+
+/* ---------- buttons ---------- */
+.btn{display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; min-height:3.25rem; padding:.7rem 1.2rem; border-radius:999px; border:1.5px solid var(--line-strong); background:var(--surface); font-weight:600; font-size:1rem; text-align:center}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--primary); border-color:var(--primary); color:var(--on-primary)}
+.btn.honey{background:var(--honey); border-color:var(--honey); color:var(--on-honey)}
+.btn.danger{color:var(--bad); border-color:#EBC3BD}
+.btn.danger-fill{background:var(--bad); border-color:var(--bad); color:#fff}
+.btn.soft{width:auto; min-height:2.6rem; padding:.4rem .95rem; font-size:.92rem; border-color:var(--line); flex:none}
+.btn + .btn{margin-top:.65rem}
+.row{display:flex; gap:.65rem}
+.row > *{flex:1; margin-top:0 !important}
+
+/* ---------- list: the apiary wall ---------- */
+.list-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:-.35rem 0 1.1rem}
+.summary{color:var(--ink-soft); font-size:.95rem}
+.summary button{background:none; border:0; padding:0; font-weight:600; color:var(--warn); text-decoration:underline; text-underline-offset:.18em}
+.group-title{display:flex; align-items:baseline; gap:.45rem; font-size:.95rem; font-weight:700; color:var(--ink); margin:1.6rem 0 .75rem}
+.group-title span{color:var(--ink-soft); font-weight:500}
+.apiary{display:grid; grid-template-columns:repeat(auto-fill, minmax(9.3rem, 1fr)); gap:1.1rem .8rem}
+.htile{display:flex; flex-direction:column; gap:.45rem; padding:0; border:0; background:none; text-align:left; min-width:0}
+.paint{position:relative; display:block; aspect-ratio:1 / .8; border-radius:14px; overflow:hidden; color:var(--hive-ink);
+  background:var(--hive); background-image:repeating-linear-gradient(to bottom, transparent 0 1.35rem, rgba(0,0,0,.075) 1.35rem calc(1.35rem + 1px));
+  box-shadow:inset 0 -1px 0 rgba(0,0,0,.12), 0 1px 2px rgba(33,26,19,.10), 0 6px 16px -6px rgba(33,26,19,.25)}
+.paint::before{content:""; position:absolute; inset:0 0 auto 0; height:.5rem; background:rgba(0,0,0,.16)}
+.paint::after{content:""; position:absolute; left:26%; right:26%; bottom:1rem; height:.34rem; border-radius:.3rem; background:rgba(0,0,0,.62)}
+.paint .slot{position:absolute; left:18%; right:18%; bottom:.55rem; height:.24rem; border-radius:.2rem; background:rgba(0,0,0,.2)}
+.paint .n{position:absolute; left:.75rem; top:.8rem; font-family:var(--display); font-weight:700; font-size:2.1rem; line-height:1; letter-spacing:-.03em}
+.paint .nm{position:absolute; left:.8rem; right:2.4rem; top:3.15rem; font-size:.82rem; font-weight:600; opacity:.88; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.dotst{position:absolute; right:.7rem; top:.95rem; width:.8rem; height:.8rem; border-radius:50%; box-shadow:0 0 0 2.5px rgba(255,255,255,.95)}
+.dotst.ok{background:#35A765} .dotst.warn{background:#F2A916} .dotst.bad{background:#E0483A} .dotst.none{background:rgba(255,255,255,.55)}
+.htile:active .paint{transform:scale(.98)}
+.stx{font-size:.84rem; font-weight:600; line-height:1.3; padding:0 .15rem; color:var(--ink-soft)}
+.stx.ok{color:var(--ok)} .stx.warn{color:var(--warn)} .stx.bad{color:var(--bad)}
+.more{display:inline-block; margin-left:.25rem; padding:0 .4rem; border-radius:999px; background:rgba(33,26,19,.07); color:var(--ink-soft); font-size:.78rem; font-weight:700}
+.fab{position:fixed; z-index:7; right:max(1rem, calc((100vw - 36rem) / 2 + 1rem)); bottom:calc(5.1rem + env(safe-area-inset-bottom,0px));
+  display:inline-flex; align-items:center; gap:.4rem; min-height:3.4rem; padding:0 1.3rem 0 1.05rem; border-radius:999px; border:0;
+  background:var(--honey); color:var(--on-honey); font-weight:700; font-size:1rem; box-shadow:0 8px 22px -6px rgba(169,106,0,.55), 0 2px 6px rgba(33,26,19,.15)}
+.fab svg.ic{width:1.35em; height:1.35em; stroke-width:2.2}
+.fab:active{transform:scale(.97)}
+.search{position:relative; margin:0 0 .6rem}
+.search svg.ic{position:absolute; left:.95rem; top:50%; transform:translateY(-50%); color:var(--ink-soft)}
+.search input{padding-left:2.7rem !important; padding-right:3rem !important}
+.search .clear{position:absolute; right:.35rem; top:50%; transform:translateY(-50%); width:2.4rem; height:2.4rem; border-radius:50%; border:0; background:none; color:var(--ink-soft); font-size:1.1rem}
+.filter-on{display:flex; align-items:center; justify-content:space-between; gap:.5rem; background:var(--honey-tint); border-radius:12px; padding:.2rem .2rem .2rem .9rem; margin:.2rem 0 .4rem; font-weight:600; font-size:.92rem}
+.filter-on .link-btn{color:var(--honey-deep); font-size:.92rem}
+
+/* ---------- detail ---------- */
+.hero{display:grid; grid-template-columns:6.4rem 1fr; gap:1.1rem; align-items:center; margin:.2rem 0 1.4rem}
+.hero .paint{aspect-ratio:1 / .9}
+.hero .paint .n{font-size:2.4rem}
+.hero h1{margin:0 0 .25rem; font-size:1.7rem}
+.hero .sub{color:var(--ink-soft); font-size:.95rem}
+.hero .stx{padding:0; margin-top:.45rem; font-size:.92rem}
+.qa{display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.4rem; margin:0 0 .4rem}
+.qa button{display:flex; flex-direction:column; align-items:center; gap:.45rem; padding:.2rem 0; border:0; background:none; font-size:.82rem; font-weight:600; color:var(--ink)}
+.qa .ico{display:grid; place-items:center; width:3.5rem; height:3.5rem; border-radius:50%; background:var(--surface); box-shadow:var(--shadow); color:var(--ink)}
+.qa .ico svg.ic{width:1.5rem; height:1.5rem}
+.qa button:active .ico{background:var(--honey-tint)}
+.qa button:first-child .ico{background:var(--ink); color:#fff}
+.facts{background:var(--surface); border-radius:16px; margin:0; padding:.1rem 1rem; box-shadow:var(--shadow)}
+.fact{display:grid; grid-template-columns:6.2rem 1fr; gap:.8rem; padding:.8rem 0; border-top:1px solid var(--line)}
+.fact:first-child{border-top:0}
+.fact dt{color:var(--ink-soft); font-size:.92rem}
+.fact dd{margin:0; font-weight:600}
+.fact dd .small{display:block; font-weight:400; color:var(--ink-soft); font-size:.86rem; margin-top:.1rem}
+.progress{height:.45rem; border-radius:.3rem; background:var(--surface-2); overflow:hidden; margin-top:.45rem}
+.progress b{display:block; height:100%; background:var(--honey); border-radius:.3rem}
+.history{background:var(--surface); border-radius:16px; box-shadow:var(--shadow); overflow:hidden}
+.rec{display:grid; grid-template-columns:2.2rem 1fr; gap:.75rem; align-items:start; width:100%; text-align:left; padding:.85rem 1rem; border:0; border-top:1px solid var(--line); background:none}
+.rec:first-child{border-top:0}
+.rec:active{background:var(--surface-2)}
+.rec .e{display:grid; place-items:center; width:2.2rem; height:2.2rem; border-radius:50%; background:var(--surface-2); color:var(--ink)}
+.rec .d{font-weight:600; font-size:.95rem}
+.rec .s{color:var(--ink-soft); font-size:.9rem}
+.detail-head{display:grid; grid-template-columns:3.6rem 1fr; gap:.9rem; align-items:center; margin:.2rem 0 1.4rem}
+.detail-head .front{min-height:3.3rem; border-radius:10px; padding-top:.35rem}
+.detail-head .front .num{font-size:1.3rem}
+.detail-head .front::after{bottom:.45rem; height:.28rem}
+.detail-head .front::before{display:none}
+.detail-head h1{margin:0; font-size:1.6rem; display:flex; align-items:center; gap:.5rem}
+.detail-head .sub{color:var(--ink-soft); font-size:.9rem; font-weight:500}
+
+/* generic painted front (small) */
+.front{position:relative; background:var(--hive); color:var(--hive-ink); display:flex; align-items:flex-start; justify-content:center; padding-top:.6rem; min-height:5rem; border-radius:12px;
+  background-image:repeating-linear-gradient(to bottom, transparent 0 1.2rem, rgba(0,0,0,.075) 1.2rem calc(1.2rem + 1px))}
+.front .num{font-family:var(--display); font-size:1.7rem; font-weight:700; line-height:1}
+.front::after{content:""; position:absolute; left:24%; right:24%; bottom:.7rem; height:.34rem; border-radius:.3rem; background:rgba(0,0,0,.6)}
+.front::before{content:""; position:absolute; left:16%; right:16%; bottom:.38rem; height:.22rem; border-radius:.2rem; background:rgba(0,0,0,.2)}
+.front.mini{min-height:3.3rem; border-radius:10px; padding-top:.35rem}
+.front.mini .num{font-size:1.2rem}
+.front.mini::after{bottom:.45rem; height:.26rem}
+.front.mini::before{display:none}
+.front.art{min-height:7rem; border-radius:16px; padding-top:1rem}
+.front.art .num{font-size:2.4rem}
+
+/* ---------- status badges ---------- */
+.badge{display:inline-flex; align-items:center; gap:.4rem; font-weight:600; font-size:.92rem; padding:.18rem .7rem .18rem .25rem; border-radius:999px}
+.badge .sym{display:inline-grid; place-items:center; width:1.2rem; height:1.2rem; border-radius:50%; font-size:.72rem; font-weight:800; color:#fff}
+.badge.ok{background:var(--ok-bg); color:var(--ok)} .badge.ok .sym{background:var(--ok)}
+.badge.warn{background:var(--warn-bg); color:var(--warn)} .badge.warn .sym{background:var(--warn)}
+.badge.bad{background:var(--bad-bg); color:var(--bad)} .badge.bad .sym{background:var(--bad)}
+.badge.none{background:var(--surface-2); color:var(--ink-soft); padding-left:.7rem}
+.bars{display:inline-flex; gap:.16rem; vertical-align:-.05rem; margin-right:.4rem}
+.bars i{display:block; width:.36rem; height:.8rem; border-radius:.12rem; background:var(--line)}
+.bars i.on{background:var(--honey)}
+.dot{display:inline-block; width:.85rem; height:.85rem; border-radius:50%; border:1.5px solid rgba(33,26,19,.35); vertical-align:-.1rem; margin-right:.35rem}
+
+/* ---------- forms ---------- */
+.field{margin:0 0 1.5rem}
+.label{display:block; font-weight:600; font-size:.95rem; margin-bottom:.5rem}
+.label small{font-weight:400; color:var(--ink-soft); font-size:.85rem}
+input[type=text],input[type=date],input[type=search],input:not([type]),textarea{width:100%; min-height:3.1rem; padding:.7rem .9rem; border:1.5px solid var(--line-strong); border-radius:12px; background:var(--surface); font-size:1rem; -webkit-appearance:none; appearance:none}
+input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none}
+textarea{min-height:5.5rem; resize:vertical}
+input:focus,textarea:focus{border-color:var(--ink); outline:none}
+.choices{display:grid; gap:.5rem}
+.choices.cols-2{grid-template-columns:1fr 1fr}
+.choices.cols-3{grid-template-columns:1fr 1fr 1fr}
+.choice{min-width:0; display:flex; align-items:center; gap:.6rem; min-height:3.1rem; padding:.55rem .9rem; border-radius:12px; border:1.5px solid var(--line-strong); background:var(--surface); font-weight:600; font-size:.98rem; text-align:left}
+.cols-3 .choice{justify-content:center; text-align:center; flex-direction:column; gap:.3rem; padding:.6rem .4rem}
+.choice[aria-pressed="true"]{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); background:var(--honey-tint)}
+.choice[aria-pressed="true"]::after{content:"✓"; margin-left:auto; font-weight:800; color:var(--ink)}
+.cols-3 .choice[aria-pressed="true"]::after{display:none}
+.choice.h-ok[aria-pressed="true"]{border-color:var(--ok); box-shadow:inset 0 0 0 1px var(--ok); background:var(--ok-bg)}
+.choice.h-warn[aria-pressed="true"]{border-color:var(--warn); box-shadow:inset 0 0 0 1px var(--warn); background:var(--warn-bg)}
+.choice.h-bad[aria-pressed="true"]{border-color:var(--bad); box-shadow:inset 0 0 0 1px var(--bad); background:var(--bad-bg)}
+.choice .sym{display:inline-grid; place-items:center; width:1.5rem; height:1.5rem; border-radius:50%; color:#fff; font-weight:800; font-size:.85rem; flex:none}
+.h-ok .sym{background:var(--ok)} .h-warn .sym{background:var(--warn)} .h-bad .sym{background:var(--bad)}
+.swatch{width:1.5rem; height:1.5rem; border-radius:7px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.2); flex:none}
+.stepper{display:grid; grid-template-columns:3.25rem 1fr 3.25rem; gap:.6rem; align-items:center}
+.stepper button{width:3.25rem; height:3.25rem; border-radius:50%; border:1.5px solid var(--line-strong); background:var(--surface); font-size:1.5rem; font-weight:500; line-height:1}
+.stepper button:active{background:var(--honey-tint)}
+.stepper input{text-align:center; font-family:var(--display); font-size:1.6rem !important; font-weight:700; min-height:3.25rem}
+.quick{display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.6rem}
+.chip{min-height:2.5rem; padding:.3rem .95rem; border-radius:999px; border:1.5px solid var(--line-strong); background:var(--surface); font-weight:600; font-size:.9rem}
+.chip[aria-pressed="true"]{border-color:var(--ink); background:var(--ink); color:#fff}
+.note-box{padding:.75rem .95rem; border-radius:12px; background:var(--honey-tint); margin:.8rem 0 0; font-size:.93rem; font-weight:500}
+.note-box.bad{background:var(--bad-bg); color:var(--bad)}
+.error{color:var(--bad); font-weight:600; margin-top:.45rem; font-size:.93rem}
+
+/* ---------- bottom bars ---------- */
+.bottom{position:fixed; left:0; right:0; bottom:0; z-index:6; padding:.35rem .6rem calc(.35rem + env(safe-area-inset-bottom,0px));
+  background:rgba(255,255,255,.9); -webkit-backdrop-filter:saturate(1.6) blur(16px); backdrop-filter:saturate(1.6) blur(16px); border-top:1px solid var(--line)}
+.bottom-inner{max-width:36rem; margin:0 auto}
+.bottom .row .btn{min-height:3.1rem}
+.nav{display:grid; grid-template-columns:repeat(3,1fr)}
+.nav button{display:flex; flex-direction:column; align-items:center; gap:.15rem; min-height:3.4rem; padding:.3rem 0; border:0; background:none; font-size:.72rem; font-weight:600; color:var(--ink-soft)}
+.nav button .i{display:grid; place-items:center; width:3.4rem; height:1.9rem; border-radius:999px}
+.nav button svg.ic{width:1.45rem; height:1.45rem}
+.nav button[aria-current="page"]{color:var(--ink)}
+.nav button[aria-current="page"] .i{background:var(--honey-tint); color:var(--ink)}
+
+/* ---------- overview ---------- */
+.card{background:var(--surface); border-radius:16px; padding:1rem 1.1rem; box-shadow:var(--shadow)}
+.card + .card{margin-top:.75rem}
+.card .t{font-weight:600; margin-bottom:.6rem}
+.card .btn{margin-top:1rem}
+.stat{font-family:var(--display); font-size:1.9rem; font-weight:700; line-height:1.1; letter-spacing:-.02em}
+ul.plain{list-style:none; padding:0; margin:.7rem 0 0}
+ul.plain li{display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.5rem 0; border-top:1px solid var(--line); font-size:.95rem}
+.ov-list{display:grid; gap:.5rem}
+.ov-row{display:grid; grid-template-columns:3rem 1fr auto; gap:.8rem; align-items:center; background:var(--surface); border-radius:14px; padding:.55rem .75rem .55rem .55rem; box-shadow:var(--shadow)}
+.ov-row .front{min-height:2.8rem}
+.ov-row .t{font-weight:600}
+.ov-row .s{font-size:.85rem; color:var(--ink-soft)}
+.ov-row > div{min-width:0}
+.ov-row .add{white-space:nowrap; min-height:2.5rem; padding:0 .9rem; border-radius:999px; border:0; background:var(--honey-tint); color:var(--ink); font-weight:700; font-size:.88rem}
+.yearbar{display:flex; align-items:center; gap:.5rem; margin:.2rem 0 1rem}
+.yearbar button{width:2.75rem; height:2.75rem; border-radius:50%; border:1.5px solid var(--line-strong); background:var(--surface); font-size:1.2rem; font-weight:600}
+.yearbar strong{flex:1; text-align:center; font-family:var(--display); font-size:1.4rem}
+.numchips{display:flex; flex-wrap:wrap; gap:.4rem}
+.numchip{min-height:2.4rem; min-width:3.2rem; padding:.2rem .75rem; border-radius:10px; border:1px solid var(--line); border-left:7px solid var(--hive); background:var(--surface); font-weight:700; font-size:.92rem}
+.linkish{background:none; border:0; padding:.2rem 0; min-height:2.2rem; font-weight:600; color:var(--ink); text-decoration:underline; text-underline-offset:.18em}
+.filters{display:flex; gap:.45rem; overflow-x:auto; padding:.2rem .1rem .5rem; margin-top:.4rem}
+.filters .chip{white-space:nowrap; flex:none}
+
+/* ---------- rows (vyřazená) ---------- */
+.hrows{display:grid; gap:.5rem}
+.hrow{display:grid; grid-template-columns:3.3rem 1fr auto; gap:.85rem; align-items:center; text-align:left; width:100%; padding:.55rem .9rem .55rem .55rem; border:0; border-radius:14px; background:var(--surface); box-shadow:var(--shadow)}
+.hr-main{display:grid; gap:.15rem; min-width:0}
+.hr-title{font-weight:700}
+.hrow .stx{padding:0}
+.hr-sub{display:flex; flex-wrap:wrap; gap:.1rem .9rem; font-size:.86rem; color:var(--ink-soft)}
+.chev{font-size:1.4rem; color:var(--line-strong); line-height:1}
+
+/* ---------- bulk ---------- */
+.bigopts{display:grid; gap:.6rem}
+.bigopt{display:grid; grid-template-columns:2.8rem 1fr; gap:.9rem; align-items:center; text-align:left; padding:.9rem 1rem; border-radius:16px; border:0; background:var(--surface); box-shadow:var(--shadow); font-size:.95rem}
+.bigopt .e{display:grid; place-items:center; width:2.8rem; height:2.8rem; border-radius:50%; background:var(--honey-tint)}
+.bigopt .e svg.ic{width:1.4rem; height:1.4rem}
+.bigopt strong{font-size:1.05rem}
+.selgrp{margin-top:1.1rem}
+.selhead{display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-bottom:.55rem; flex-wrap:wrap}
+.tiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(3.5rem, 1fr)); gap:.55rem}
+.tile{position:relative; min-height:3.4rem; border-radius:10px; border:0; background:var(--hive); color:var(--hive-ink); font-family:var(--display); font-weight:700; font-size:1.15rem; box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.tile[aria-pressed="true"]{box-shadow:0 0 0 3px var(--bg), 0 0 0 5.5px var(--ink)}
+.tile[aria-pressed="true"]::after{content:"✓"; position:absolute; top:-.5rem; right:-.5rem; width:1.35rem; height:1.35rem; border-radius:50%; background:var(--ink); color:#fff; font-family:var(--font); font-size:.75rem; display:grid; place-items:center; border:2px solid var(--bg)}
+
+/* ---------- welcome ---------- */
+.welcome{text-align:center; padding:1rem .3rem .4rem}
+.welcome .hive-art{width:5.5rem; margin:0 auto 1.2rem}
+.welcome h1{font-size:1.8rem; margin-bottom:.6rem}
+.welcome p{margin:0 auto 1.8rem; max-width:26rem}
+.preview{padding:1rem; border-radius:16px; background:var(--surface-2); border:1px dashed var(--line-strong); pointer-events:none}
+.preview .hrow{box-shadow:none}
+
+/* ---------- empty ---------- */
+.empty{text-align:center; padding:1.6rem .5rem 1rem}
+.empty .hive-art{width:7rem; margin:0 auto 1.3rem}
+.empty p{font-size:1.02rem}
+
+/* ---------- modal & toast ---------- */
+#modal{position:fixed; inset:0; z-index:20; background:rgba(33,26,19,.38); display:flex; align-items:flex-end; justify-content:center}
+.sheet{position:relative; width:100%; max-width:36rem; background:var(--surface); border-radius:24px 24px 0 0; padding:1.6rem 1.2rem calc(1.2rem + env(safe-area-inset-bottom,0px)); max-height:90%; overflow:auto}
+.sheet::before{content:""; position:absolute; top:.55rem; left:50%; width:2.4rem; height:.28rem; margin-left:-1.2rem; border-radius:1rem; background:var(--line-strong)}
+.sheet h3{font-family:var(--display); font-size:1.4rem; font-weight:700; letter-spacing:-.01em; margin:0 0 .9rem}
+.sheet textarea{font-size:.8rem; min-height:10rem}
+#toast{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(5.4rem + env(safe-area-inset-bottom,0px)); z-index:30; background:var(--ink); color:#fff; padding:.75rem 1.2rem; border-radius:999px; font-weight:600; font-size:.95rem; max-width:90%; text-align:center; transition:opacity .25s; box-shadow:0 8px 24px rgba(33,26,19,.25)}
+#toast.hide{opacity:0; pointer-events:none}
+.banner{background:var(--bad-bg); color:var(--bad); padding:.75rem 1rem; border-radius:12px; font-weight:600; margin-bottom:1rem}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+<div id="top"></div>
+<main id="app"></main>
+<div id="bottom"></div>
+<div id="modal" hidden></div>
+<div id="toast" class="hide" role="status" aria-live="polite"></div>
+<input type="file" id="file" accept=".json,application/json,text/plain" hidden>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= data ================= */
+const KEY = "vceli-denik.v1";
+const Y = new Date().getFullYear();
+const BIG = 8;        // od kolika včelstev se ukáže hledání a filtry
+const ROWS_FROM = 12; // od kolika včelstev se seznam automaticky zhustí
+
+const COLORS = [
+  {id:"zluta",  n:"Žlutá",   hex:"#E8B330", ink:"#2A1F05"},
+  {id:"modra",  n:"Modrá",   hex:"#3C6EA6", ink:"#FFFFFF"},
+  {id:"zelena", n:"Zelená",  hex:"#4A7C4E", ink:"#FFFFFF"},
+  {id:"cervena",n:"Červená", hex:"#B5443A", ink:"#FFFFFF"},
+  {id:"bila",   n:"Bílá",    hex:"#EFECE3", ink:"#2A2A2A"},
+  {id:"drevo",  n:"Dřevo",   hex:"#9A6A3E", ink:"#FFFFFF"}
+];
+const ICONS = {
+  hive:'<path d="M4 10.5h16V20H4z"/><path d="M2.8 10.8 12 4l9.2 6.8"/><path d="M9.5 16.5h5"/>',
+  chart:'<path d="M5 20v-8"/><path d="M12 20V5"/><path d="M19 20v-5"/>',
+  gear:'<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.9 1.9M16.6 16.6l1.9 1.9M5.5 18.5l1.9-1.9M16.6 7.4l1.9-1.9"/>',
+  prohlidka:'<circle cx="11" cy="11" r="6"/><path d="m20 20-4.6-4.6"/>',
+  krmeni:'<path d="M12 3.5c3.2 4.1 6 7.2 6 10.8a6 6 0 0 1-12 0c0-3.6 2.8-6.7 6-10.8z"/>',
+  leceni:'<rect x="2.8" y="8.6" width="18.4" height="6.8" rx="3.4" transform="rotate(-45 12 12)"/><path d="m9.6 9.6 4.8 4.8"/>',
+  matka:'<path d="M3.5 8.5 7.8 12 12 5.5l4.2 6.5 4.3-3.5-1.8 10H5.3z"/>',
+  med:'<path d="M8.5 3.5h7v2.8h-7z"/><path d="M6.8 6.3h10.4l-.9 13.3a1.2 1.2 0 0 1-1.2 1.1H8.9a1.2 1.2 0 0 1-1.2-1.1z"/><path d="M9.5 12.5h5"/>',
+  presun:'<path d="M3 7h11v9.5H3z"/><path d="M14 10.5h3.8l3.2 3.2v2.8h-7"/><circle cx="7" cy="17.5" r="1.7"/><circle cx="17.2" cy="17.5" r="1.7"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  back:'<path d="m14.5 5-7 7 7 7"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/>',
+  sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  layers:'<path d="M12 3.5 21 8.5l-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  list:'<rect x="4" y="4.5" width="4" height="4" rx="1"/><rect x="4" y="15.5" width="4" height="4" rx="1"/><path d="M11 6.5h9M11 17.5h9"/>'
+};
+const ic = n => '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[n]||"")+'</svg>';
+const colorOf = id => COLORS.find(c => c.id === id) || COLORS[0];
+const MARKS = [
+  {n:"modrá",  hex:"#2F66B0"}, {n:"bílá", hex:"#FFFFFF"}, {n:"žlutá", hex:"#F2C230"},
+  {n:"červená",hex:"#C0392B"}, {n:"zelená", hex:"#3F8F3A"}
+];
+const markOf = y => MARKS[((y % 5) + 5) % 5];
+const HEALTH = {
+  zdrave:   {t:"Zdravé",             s:"✓", c:"ok"},
+  podezreni:{t:"Podezření na nemoc", s:"?", c:"warn"},
+  nemocne:  {t:"Nemocné",            s:"!", c:"bad"}
+};
+const STRENGTH = { slabe:{t:"Slabé",n:1}, stredni:{t:"Střední",n:2}, silne:{t:"Silné",n:3} };
+const PROBLEMS = {
+  varroaza:"Varroáza (roztoči)", kridla:"Zmrzačená křídla", mor:"Mor včelího plodu",
+  hniloba:"Hniloba plodu", nosema:"Nosematóza (průjem)", vapenaty:"Vápenatý plod", jine:"Jiné"
+};
+const FEEDS = { roztok:"Cukerný roztok", invert:"Invertní sirup", testo:"Krmné těsto", jine:"Jiné krmivo" };
+const DRUGS = ["Varidol","M-1 AER","Gabon PF 90","Formidol","Oxuvar","Apiguard"];
+const TYPES = {
+  prohlidka:{e:ic("prohlidka"), t:"Prohlídka"},
+  krmeni:   {e:ic("krmeni"),    t:"Krmení"},
+  leceni:   {e:ic("leceni"),    t:"Léčení"},
+  matka:    {e:ic("matka"),     t:"Matka"},
+  med:      {e:ic("med"),       t:"Med"},
+  presun:   {e:ic("presun"),    t:"Přesun"}
+};
+const FORM_TYPES = ["prohlidka","krmeni","leceni","matka","med"];
+const RETIRE = { uhynulo:"Uhynulo", spojeno:"Spojeno s jiným včelstvem", prodano:"Prodáno", jine:"Jiný důvod" };
+
+function blank(){ return {version:2, settings:{scale:1, feedTarget:15, lastFeed:"roztok", lastDrug:"", honey:false, view:"tiles", onboarded:false}, hives:[]}; }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function normalize(d){
+  const b = blank();
+  if(d && d.settings && d.settings.view !== "rows") d.settings.view = "tiles";
+  return {
+    version:2,
+    settings:Object.assign(b.settings, (d && d.settings) || {}),
+    hives:((d && d.hives) || []).map(h => Object.assign(
+      {id:uid(), number:"", name:"", apiary:"", color:"zluta", retired:null}, h,
+      {records:Array.isArray(h.records) ? h.records.filter(r => r && r.type && r.date) : []}
+    ))
+  };
+}
+let storageOk = true;
+function load(){
+  try{
+    const s = localStorage.getItem(KEY);
+    if(s){ const d = JSON.parse(s); if(d && Array.isArray(d.hives)) return normalize(d); }
+  }catch(e){ storageOk = false; }
+  return blank();
+}
+/* most do aplikace v telefonu (Flutter) – když stránka běží v aplikaci, existuje window.VceliDenik */
+function appBridge(){ return (window.VceliDenik && typeof window.VceliDenik.postMessage === "function") ? window.VceliDenik : null; }
+function toApp(msg){ const b = appBridge(); if(!b) return false; try{ b.postMessage(JSON.stringify(msg)); return true; }catch(e){ return false; } }
+function persist(){
+  const text = JSON.stringify(DB);
+  try{ localStorage.setItem(KEY, text); storageOk = true; }
+  catch(e){ storageOk = false; }
+  if(toApp({action:"store", data:text})) storageOk = true;
+}
+let DB = load();
+try{ localStorage.setItem(KEY + ".test","1"); localStorage.removeItem(KEY + ".test"); }catch(e){ storageOk = false; }
+
+/* ================= helpers ================= */
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function today(){ const d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function fmtDate(s){ if(!s) return ""; const [y,m,d] = s.split("-").map(Number); return d+". "+m+". "+y; }
+function fmtShort(s){ if(!s) return ""; const [y,m,d] = s.split("-").map(Number); return y === Y ? d+". "+m+"." : d+". "+m+". "+y; }
+function kg(n){ return (Math.round(n*10)/10).toString().replace(".", ","); }
+function num(v){ const n = parseFloat(String(v).replace(",", ".").replace(/\s/g,"")); return isFinite(n) ? n : NaN; }
+function plural(n, one, few, many){ n = Math.abs(n); return n === 1 ? one : (n >= 2 && n <= 4 ? few : many); }
+const colonies = n => n + " " + plural(n,"včelstvo","včelstva","včelstev");
+const hivesN = n => n + " " + plural(n,"úl","úly","úlů");
+function ageText(y){ const a = Y - y; if(a <= 0) return "letošní"; return a + " " + plural(a,"rok","roky","let"); }
+function frames(n){ return n + " obsazen" + plural(n,"ý rámek","é rámky","ých rámků"); }
+const hiveById = id => DB.hives.find(h => h.id === id);
+const active = () => DB.hives.filter(h => !h.retired);
+const retiredHives = () => DB.hives.filter(h => h.retired);
+const byNumber = (a,b) => String(a.number).localeCompare(String(b.number), "cs", {numeric:true});
+const apiaryOf = h => (h.apiary || "").trim();
+function apiaryList(hs){
+  const first = {};
+  hs.slice().sort(byNumber).forEach(h => { const a = apiaryOf(h); if(!(a in first)) first[a] = Object.keys(first).length; });
+  return Object.keys(first).sort((x,y) => x === "" ? 1 : y === "" ? -1 : first[x] - first[y]);
+}
+const apiaryName = a => a ? esc(a) : "Bez stanoviště";
+function hiveTitle(h){ return "Včelstvo č. " + esc(h.number); }
+function actionTypes(){ return ["prohlidka","krmeni","leceni","matka"].concat(DB.settings.honey ? ["med"] : []); }
+
+function sortedRecs(h){
+  return h.records.slice().sort((a,b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.t||0) - (a.t||0));
+}
+function state(h){
+  const rs = sortedRecs(h);
+  return {
+    rs,
+    health:   rs.find(r => r.type === "prohlidka" && r.health),
+    strength: rs.find(r => r.type === "prohlidka" && r.strength),
+    lastInsp: rs.find(r => r.type === "prohlidka"),
+    queen:    rs.find(r => r.type === "matka"),
+    treat:    rs.find(r => r.type === "leceni")
+  };
+}
+const sumKg = (h,y,type) => h.records.filter(r => r.type === type && r.date.slice(0,4) === String(y)).reduce((s,r) => s + (+r.kg || 0), 0);
+const fedIn = (h,y) => sumKg(h,y,"krmeni");
+const honeyIn = (h,y) => sumKg(h,y,"med");
+const treatsIn = (h,y) => h.records.filter(r => r.type === "leceni" && r.date.slice(0,4) === String(y));
+function flags(h){
+  const s = state(h), fed = fedIn(h, Y), t = DB.settings.feedTarget || 0;
+  return {
+    s, fed,
+    pozor: !!((s.health && s.health.health !== "zdrave") || (s.lastInsp && s.lastInsp.queenSeen === "ne")),
+    slabe: !!(s.strength && s.strength.strength === "slabe"),
+    nelecene: treatsIn(h, Y).length === 0,
+    nedokrmene: t > 0 && fed < t
+  };
+}
+
+function healthBadge(r, short){
+  if(!r) return '<span class="badge none">'+(short ? "Nezapsáno" : "Stav nezapsán")+'</span>';
+  const H = HEALTH[r.health];
+  return '<span class="badge '+H.c+'"><span class="sym" aria-hidden="true">'+H.s+'</span>'+(short && H.c === "warn" ? "Podezření" : H.t)+'</span>';
+}
+function bars(n){ return '<span class="bars" aria-hidden="true">'+[1,2,3].map(i => '<i class="'+(i<=n?"on":"")+'"></i>').join("")+'</span>'; }
+function front(h, cls){
+  const c = colorOf(h.color);
+  return '<span class="front '+(cls||"")+'" style="--hive:'+c.hex+';--hive-ink:'+c.ink+'" aria-hidden="true"><span class="num">'+esc(h.number)+'</span></span>';
+}
+function numchips(list){
+  return '<div class="numchips">' + list.map(h =>
+    '<button class="numchip" style="--hive:'+colorOf(h.color).hex+'" data-act="go" data-href="#/v/'+h.id+'">č. '+esc(h.number)+'</button>').join("") + '</div>';
+}
+function queenText(q){
+  if(!q) return "nezapsána";
+  if(!q.year) return "rok neznámý";
+  return q.year + " (" + ageText(q.year) + ")";
+}
+function summary(r){
+  if(r.type === "prohlidka"){
+    const p = [];
+    if(r.health) p.push(HEALTH[r.health].t);
+    if(r.strength) p.push("síla: " + STRENGTH[r.strength].t.toLowerCase());
+    if(r.frames) p.push(frames(r.frames));
+    if(r.problems && r.problems.length) p.push(r.problems.map(x => PROBLEMS[x] || x).join(", "));
+    if(r.queenSeen === "ano") p.push("matka nebo vajíčka viděny");
+    if(r.queenSeen === "ne") p.push("matka ani vajíčka neviděny");
+    return p.join(", ") || "Prohlídka";
+  }
+  if(r.type === "krmeni") return kg(r.kg) + " kg" + (r.feed ? ", " + (FEEDS[r.feed] || r.feed).toLowerCase() : "");
+  if(r.type === "leceni") return (r.drug || "Léčení") + (r.batch ? ", šarže " + r.batch : "") + (r.mites !== "" && r.mites != null ? ", spad " + r.mites + " roztočů" : "");
+  if(r.type === "matka"){
+    if(!r.year) return "Rok neznámý" + (r.marked === "ano" ? ", označená" : "");
+    return "Ročník " + r.year + ", značka " + markOf(r.year).n + (r.marked === "ano" ? ", označená" : r.marked === "ne" ? ", neoznačená" : "");
+  }
+  if(r.type === "med") return kg(r.kg) + " kg medu";
+  if(r.type === "presun") return "Ze stanoviště „" + (r.from || "bez stanoviště") + "“ na „" + (r.to || "bez stanoviště") + "“";
+  return "";
+}
+
+/* ================= router ================= */
+const stack = [location.hash || "#/"];
+let replacing = false;
+function parts(){ return (location.hash.replace(/^#/,"") || "/").split("/").filter(Boolean); }
+function go(h){ if(location.hash === h) render(); else location.hash = h; }
+function replaceTo(h){ if(location.hash === h){ render(); return; } replacing = true; location.replace(h); }
+function back(fallback){ if(stack.length > 1) history.back(); else replaceTo(fallback || "#/"); }
+function resetTo(h){ stack.length = 1; replaceTo(h); }
+window.addEventListener("hashchange", () => {
+  const cur = location.hash || "#/";
+  if(replacing){ stack[stack.length-1] = cur; replacing = false; }
+  else {
+    const i = stack.lastIndexOf(cur, stack.length - 2);
+    if(i >= 0) stack.length = i + 1; else stack.push(cur);
+  }
+  closeModal(true);
+  render();
+  window.scrollTo(0,0);
+});
+
+/* ================= views ================= */
+let F = {};
+let ovYear = Y, ovOnlyMissing = null;
+let listFilter = "vse", listApiary = "__all", listQuery = "";
+
+function render(){
+  document.documentElement.style.setProperty("--scale", DB.settings.scale || 1);
+  const p = parts();
+  let v;
+  if(p[0] === "v" && p[1]){
+    const h = hiveById(p[1]);
+    if(!h){ replaceTo("#/"); return; }
+    if(!p[2]) v = viewDetail(h);
+    else if(p[2] === "upravit") v = viewHiveForm(h);
+    else if(p[2] === "vyradit") v = viewRetire(h);
+    else if(FORM_TYPES.indexOf(p[2]) >= 0 && !h.retired) v = viewRecordForm(h, p[2]);
+    else v = viewDetail(h);
+  }
+  else if(p[0] === "nove") v = viewHiveForm(null);
+  else if(p[0] === "hromadne") v = (p[1] && ["leceni","krmeni","presun"].indexOf(p[1]) >= 0) ? viewBulk(p[1], p[2]) : viewBulkPick();
+  else if(p[0] === "prehled") v = viewOverview();
+  else if(p[0] === "vice") v = viewSettings();
+  else if(p[0] === "vyrazena") v = viewRetiredList();
+  else v = viewList();
+  if(!DB.settings.onboarded) v = viewWelcome();
+  if(!v) return;
+
+  document.getElementById("top").innerHTML = v.back
+    ? '<header class="topbar"><button class="link-btn" data-act="back" data-fallback="'+v.back+'">'+ic("back")+'Zpět</button><span class="spacer"></span>' + (v.right || "") + '</header>'
+    : '';
+  document.getElementById("app").innerHTML =
+    (storageOk ? "" : '<div class="banner">Tento prohlížeč nedovolí ukládat data. Záznamy se po zavření ztratí.</div>') + v.body;
+  document.getElementById("bottom").innerHTML = '<div class="bottom"><div class="bottom-inner">' + (v.footer || nav(v.tab)) + '</div></div>';
+  if(v.after) v.after();
+}
+
+function nav(activeTab){
+  const items = [["list","hive","Včelstva","#/"],["prehled","chart","Přehled","#/prehled"],["vice","gear","Nastavení","#/vice"]];
+  return '<nav class="nav" aria-label="Hlavní menu">' + items.map(i =>
+    '<button data-act="go" data-href="'+i[3]+'"'+(activeTab===i[0]?' aria-current="page"':'')+'><span class="i">'+ic(i[1])+'</span>'+i[2]+'</button>'
+  ).join("") + '</nav>';
+}
+
+/* ---------- list ---------- */
+function dataAttrs(h, f){
+  const fl = ["pozor","slabe","nelecene","nedokrmene"].filter(k => f[k]).join(" ");
+  return 'data-num="'+esc(h.number)+'" data-name="'+esc(h.name || "")+'" data-flags="'+fl+'"';
+}
+function status(h, f){
+  const s = f.s, autumn = new Date().getMonth() >= 7;
+  const items = []; let level = "ok";
+  const add = (t, l) => { items.push(t); if(l === "bad" || level === "ok") level = l; };
+  if(s.health && s.health.health === "nemocne") add("Nemocné", "bad");
+  else if(s.health && s.health.health === "podezreni") add("Podezření na nemoc", "warn");
+  if(s.lastInsp && s.lastInsp.queenSeen === "ne") add("Neviděna matka", "warn");
+  if(f.nedokrmene && autumn) add("Chybí "+kg((DB.settings.feedTarget || 0) - f.fed)+" kg krmení", "warn");
+  if(f.nelecene && autumn) add("Letos neléčeno", "warn");
+  if(s.queen && s.queen.year && Y - s.queen.year >= 3) add("Stará matka", "warn");
+  if(f.slabe) add("Slabé včelstvo", "warn");
+  if(!items.length) return h.records.length ? {level:"ok", text:"V pořádku", more:0} : {level:"none", text:"Bez záznamů", more:0};
+  return {level, text:items[0], more:items.length - 1};
+}
+function paint(h, extra){
+  const c = colorOf(h.color);
+  return '<span class="paint" style="--hive:'+c.hex+';--hive-ink:'+c.ink+'" aria-hidden="true"><span class="n">'+esc(h.number)+'</span>'+(extra || "")+'<span class="slot"></span></span>';
+}
+function stx(st){ return '<span class="stx '+st.level+'">'+esc(st.text)+(st.more ? '<span class="more">+'+st.more+'</span>' : '')+'</span>'; }
+function hiveTile(h, f){
+  const st = status(h, f);
+  return '<button class="htile" data-act="go" data-href="#/v/'+h.id+'" '+dataAttrs(h,f)+' aria-label="'+hiveTitle(h)+(h.name ? ", "+esc(h.name) : "")+': '+esc(st.text)+'">' +
+    paint(h, (h.name ? '<span class="nm">'+esc(h.name)+'</span>' : '') + '<i class="dotst '+st.level+'"></i>') + stx(st) + '</button>';
+}
+function hiveRowItem(h, f){
+  const st = status(h, f);
+  return '<button class="hrow" data-act="go" data-href="#/v/'+h.id+'" '+dataAttrs(h,f)+'>' + front(h,"mini") +
+    '<span class="hr-main"><span class="hr-title">'+hiveTitle(h)+(h.name ? ' <span class="muted" style="font-weight:500">'+esc(h.name)+'</span>' : '')+'</span>'+stx(st)+'</span>' +
+    '<span class="chev" aria-hidden="true">›</span></button>';
+}
+function viewWelcome(){
+  const sc = DB.settings.scale || 1, v = DB.settings.view === "rows" ? "rows" : "tiles";
+  const demo = [{number:"12", name:"U lípy", color:"zluta"}, {number:"13", name:"", color:"modra"}];
+  const sts = [{level:"ok", text:"V pořádku", more:0}, {level:"warn", text:"Chybí 3 kg krmení", more:0}];
+  const preview = v === "rows"
+    ? '<div class="hrows">' + demo.map((h,i) => '<div class="hrow">'+front(h,"mini")+'<span class="hr-main"><span class="hr-title">'+hiveTitle(h)+(h.name ? ' <span class="muted" style="font-weight:500">'+esc(h.name)+'</span>' : '')+'</span>'+stx(sts[i])+'</span><span class="chev">›</span></div>').join("") + '</div>'
+    : '<div class="apiary">' + demo.map((h,i) => '<div class="htile">'+paint(h, (h.name ? '<span class="nm">'+esc(h.name)+'</span>' : '')+'<i class="dotst '+sts[i].level+'"></i>')+stx(sts[i])+'</div>').join("") + '</div>';
+  return {body:
+    '<div class="welcome"><div class="hive-art">'+paint({number:"1", color:"zluta"})+'</div>' +
+    '<h1>Vítejte ve Včelím deníku</h1><p class="muted">Zapisujte si léčení, krmení a stav svých včelstev. Nejdřív si nastavte, jak má aplikace vypadat. Obojí jde kdykoli změnit v Nastavení.</p></div>' +
+    '<div class="field"><span class="label">Velikost písma</span><div class="choices cols-3">' +
+      [[1,"Normální"],[1.2,"Větší"],[1.4,"Největší"]].map(o =>
+        '<button class="choice" data-act="scale" data-value="'+o[0]+'" aria-pressed="'+(sc===o[0])+'"><span style="font-family:var(--display);font-size:'+(o[0]*1.3)+'rem;font-weight:700">Aa</span>'+o[1]+'</button>').join("") +
+    '</div></div>' +
+    '<div class="field"><span class="label">Zobrazení včelstev</span><div class="choices cols-2">' +
+      '<button class="choice" data-act="setview" data-value="tiles" aria-pressed="'+(v==="tiles")+'">'+ic("grid")+'Jako úly</button>' +
+      '<button class="choice" data-act="setview" data-value="rows" aria-pressed="'+(v==="rows")+'">'+ic("list")+'Jako seznam</button>' +
+    '</div></div>' +
+    '<div class="label">Takhle to bude vypadat</div><div class="preview">'+preview+'</div>',
+    footer:'<button class="btn primary" data-act="welcome-done">Pokračovat</button>'
+  };
+}
+const FILTERS = {vse:"Všechna včelstva", pozor:"Potřebují pozornost", slabe:"Slabá", nelecene:"Neléčená letos", nedokrmene:"Nedokrmená"};
+function viewList(){
+  const all = active().sort(byNumber);
+  const nRet = retiredHives().length;
+  const retBtn = nRet ? '<button class="btn" data-act="go" data-href="#/vyrazena">Vyřazená včelstva ('+nRet+')</button>' : '';
+  if(!all.length){
+    return {tab:"list", body:
+      '<h1>Moje včelstva</h1>' +
+      '<div class="empty"><div class="hive-art">'+paint({number:"1", color:"zluta"})+'</div>' +
+      '<p><strong>Zatím tu nemáte žádné včelstvo.</strong></p><p class="muted">Přidejte první úl. Stačí zadat jeho číslo.</p></div>' +
+      '<button class="btn primary" data-act="go" data-href="#/nove">'+ic("plus")+'Přidat včelstvo</button>' +
+      '<h2>Nejdřív si to vyzkoušet</h2>' +
+      '<button class="btn" data-act="demo" data-size="small">Ukázka se 4 včelstvy</button>' +
+      '<button class="btn" data-act="demo" data-size="big">Ukázka velkého včelařství (52 včelstev)</button>' +
+      (retBtn ? '<div style="margin-top:1.5rem">'+retBtn+'</div>' : '')
+    };
+  }
+  const big = all.length >= BIG;
+  if(!big){ listFilter = "vse"; listApiary = "__all"; listQuery = ""; }
+  const apis = apiaryList(all);
+  if(listApiary !== "__all" && apis.indexOf(listApiary) < 0) listApiary = "__all";
+  const fl = new Map(all.map(h => [h.id, flags(h)]));
+  const attention = all.filter(h => fl.get(h.id).pozor).length;
+
+  let html = '<h1>Moje včelstva</h1><div class="list-head"><div class="summary">'+colonies(all.length) +
+    (attention ? ', ' + (big ? '<button data-act="lfilter" data-value="pozor">'+attention+' '+plural(attention,"potřebuje","potřebují","potřebuje")+' pozornost</button>'
+                             : attention+' '+plural(attention,"potřebuje","potřebují","potřebuje")+' pozornost') : '') + '</div>' +
+    (all.length >= 2 ? '<button class="btn soft" data-act="options">'+ic("sliders")+'Možnosti</button>' : '') + '</div>';
+  if(big) html += '<div class="search">'+ic("search")+'<input id="q" type="search" inputmode="numeric" enterkeyhint="go" autocomplete="off" placeholder="Najít úl podle čísla" aria-label="Najít úl podle čísla" value="'+esc(listQuery)+'"><button class="clear" data-act="clear-q" aria-label="Smazat hledání">✕</button></div>';
+  if(listFilter !== "vse" || listApiary !== "__all"){
+    html += '<div class="filter-on"><span>Jen '+[listApiary !== "__all" ? apiaryName(listApiary) : "", listFilter !== "vse" ? FILTERS[listFilter].toLowerCase() : ""].filter(Boolean).join(", ")+'</span><button class="link-btn" data-act="clear-filter">Zobrazit vše</button></div>';
+  }
+  html += '<div id="hlist">';
+  apis.forEach(a => {
+    const gh = all.filter(h => apiaryOf(h) === a);
+    html += '<section class="grp" data-api="'+esc(a)+'">' +
+      (apis.length > 1 ? '<h2 class="group-title">'+apiaryName(a)+' <span>'+gh.length+'</span></h2>' : '<div style="height:.3rem"></div>') +
+      (DB.settings.view === "rows"
+        ? '<div class="hrows">' + gh.map(h => hiveRowItem(h, fl.get(h.id))).join("") + '</div>'
+        : '<div class="apiary">' + gh.map(h => hiveTile(h, fl.get(h.id))).join("") + '</div>') + '</section>';
+  });
+  html += '</div><p id="nothing" class="muted" hidden>Žádné včelstvo tomu neodpovídá.</p>';
+  if(retBtn) html += '<div style="margin-top:2rem">'+retBtn+'</div>';
+  html += '<button class="fab" data-act="go" data-href="#/nove">'+ic("plus")+'Přidat</button>';
+  return {tab:"list", body:html, after:applyListView};
+}
+function openOptions(){
+  const all = active(), big = all.length >= BIG, apis = apiaryList(all);
+  const fl = new Map(all.map(h => [h.id, flags(h)]));
+  const old = document.querySelector("#modal .sheet"), top = old ? old.scrollTop : 0;
+  let html = '<h3>Možnosti</h3><button class="btn honey" data-act="go" data-href="#/hromadne">'+ic("layers")+'Zapsat více úlům najednou</button>' +
+    '<p class="hint">Třeba léčení celého stanoviště, krmení nebo přesun úlů.</p>';
+  if(big){
+    if(apis.length > 1){
+      html += '<div class="label" style="margin-top:1.4rem">Stanoviště</div><div class="choices">' +
+        ["__all"].concat(apis).map(a => '<button class="choice" data-act="lapi" data-value="'+esc(a)+'" aria-pressed="'+(listApiary===a)+'">'+(a === "__all" ? "Všechna stanoviště" : apiaryName(a))+'</button>').join("") + '</div>';
+    }
+    const scope = listApiary === "__all" ? all : all.filter(h => apiaryOf(h) === listApiary);
+    const keys = ["vse","pozor","slabe","nelecene"].concat(DB.settings.feedTarget ? ["nedokrmene"] : []);
+    html += '<div class="label" style="margin-top:1.4rem">Zobrazit</div><div class="choices">' +
+      keys.map(k => '<button class="choice" data-act="lfilter" data-value="'+k+'" aria-pressed="'+(listFilter===k)+'">'+FILTERS[k]+' ('+(k === "vse" ? scope.length : scope.filter(h => fl.get(h.id)[k]).length)+')</button>').join("") + '</div>';
+  }
+  html += '<button class="btn primary" data-act="close" style="margin-top:1.4rem">Hotovo</button>';
+  modal(html);
+  const sh = document.querySelector("#modal .sheet"); if(sh) sh.scrollTop = top;
+}
+function applyListView(){
+  const q = listQuery.trim().toLowerCase();
+  let vis = 0;
+  const exact = q && [...document.querySelectorAll("#hlist [data-num]")].some(el => el.dataset.num.toLowerCase() === q);
+  document.querySelectorAll(".grp").forEach(g => {
+    let gv = 0;
+    const apiOk = listApiary === "__all" || g.dataset.api === listApiary;
+    g.querySelectorAll("[data-num]").forEach(el => {
+      let ok;
+      if(q){
+        const n = el.dataset.num.toLowerCase(), nm = el.dataset.name.toLowerCase();
+        ok = exact ? n === q : (n.startsWith(q) || (q.length > 1 && nm.indexOf(q) >= 0));
+      } else {
+        ok = apiOk && (listFilter === "vse" || el.dataset.flags.split(" ").indexOf(listFilter) >= 0);
+      }
+      el.hidden = !ok; if(ok){ gv++; vis++; }
+    });
+    g.hidden = gv === 0;
+  });
+  const no = document.getElementById("nothing"); if(no) no.hidden = vis > 0;
+  return vis;
+}
+
+/* ---------- detail ---------- */
+function viewDetail(h){
+  const s = state(h);
+  const fed = fedIn(h, Y), target = DB.settings.feedTarget || 0;
+  const pct = target ? Math.min(100, Math.round(fed / target * 100)) : 0;
+  const q = s.queen;
+  let queenDd = '<span class="muted">Nezapsána</span>';
+  if(q){
+    if(q.year){
+      const m = markOf(q.year);
+      queenDd = '<span class="dot" style="background:'+m.hex+'" aria-hidden="true"></span>'+q.year+', '+ageText(q.year) +
+        '<span class="small">Značka '+m.n+(q.marked==="ano"?", matka je označená":q.marked==="ne"?", matka není označená":"")+'</span>' +
+        (Y - q.year >= 3 ? '<span class="small">Starší matka, zvažte výměnu.</span>' : '');
+    } else queenDd = 'Rok neznámý';
+  }
+  const facts =
+    '<dl class="facts">' +
+      '<div class="fact"><dt>Zdraví</dt><dd>'+healthBadge(s.health) +
+        (s.health ? '<span class="small">Zapsáno '+fmtShort(s.health.date)+(s.health.problems && s.health.problems.length ? ': '+s.health.problems.map(x=>PROBLEMS[x]||x).join(", ") : '')+'</span>' : '')+'</dd></div>' +
+      '<div class="fact"><dt>Síla</dt><dd>'+(s.strength ? bars(STRENGTH[s.strength.strength].n)+STRENGTH[s.strength.strength].t+(s.strength.frames?'<span class="small">'+frames(s.strength.frames)+'</span>':'') : '<span class="muted">Nezapsána</span>')+'</dd></div>' +
+      '<div class="fact"><dt>Matka</dt><dd>'+queenDd+'</dd></div>' +
+      '<div class="fact"><dt>Krmení '+Y+'</dt><dd>'+kg(fed)+' kg'+(target ? ' z '+kg(target)+' kg<div class="progress" aria-hidden="true"><b style="width:'+pct+'%"></b></div>' : '')+'</dd></div>' +
+      '<div class="fact"><dt>Léčení</dt><dd>'+(s.treat ? esc(s.treat.drug)+'<span class="small">'+fmtDate(s.treat.date)+'</span>' : '<span class="muted">Zatím nezapsáno</span>')+'</dd></div>' +
+      (DB.settings.honey ? '<div class="fact"><dt>Med '+Y+'</dt><dd>'+kg(honeyIn(h, Y))+' kg</dd></div>' : '') +
+    '</dl>';
+  const actions = '<div class="qa">' + actionTypes().map(k =>
+    '<button data-act="go" data-href="#/v/'+h.id+'/'+k+'"><span class="ico">'+TYPES[k].e+'</span>'+TYPES[k].t+'</button>').join("") + '</div>';
+  const hist = s.rs.length
+    ? '<div class="history">' + s.rs.map(r =>
+        '<button class="rec" data-act="rec" data-hive="'+h.id+'" data-rec="'+r.id+'"><span class="e" aria-hidden="true">'+(TYPES[r.type]||{e:"•"}).e+'</span>' +
+        '<span><span class="d">'+fmtDate(r.date)+', '+(TYPES[r.type]||{t:"záznam"}).t.toLowerCase()+'</span><br><span class="s">'+esc(summary(r))+(r.note?'<br>„'+esc(r.note)+'“':'')+'</span></span></button>').join("") + '</div>'
+    : '<p class="muted">Zatím žádné záznamy. Začněte prohlídkou nebo krmením.</p>';
+  const R = h.retired;
+  return {
+    back: R ? "#/vyrazena" : "#/", tab:"list",
+    right:'<button class="link-btn" data-act="go" data-href="#/v/'+h.id+'/upravit">Upravit</button>',
+    body:
+      '<div class="hero">'+paint(h)+'<div><h1>'+hiveTitle(h)+'</h1>'+
+        ((h.name||h.apiary) ? '<div class="sub">'+esc([h.name, h.apiary].filter(Boolean).join(", "))+'</div>' : '')+
+        (R ? '' : stx(status(h, flags(h))))+'</div></div>' +
+      (R ? '<div class="note-box" style="margin:0 0 1rem">Vyřazeno '+fmtDate(R.date)+': '+RETIRE[R.reason].toLowerCase()+(R.into ? ' (č. '+esc(R.into)+')' : '')+(R.note ? '<br>„'+esc(R.note)+'“' : '')+'</div>' +
+           '<button class="btn" data-act="restore" data-hive="'+h.id+'" style="margin-bottom:1.2rem">Vrátit mezi aktivní včelstva</button>' : '') +
+      (R ? '' : actions) +
+      '<h2>Stav včelstva</h2>' + facts +
+      '<h2>Historie</h2>' + hist
+  };
+}
+
+/* ---------- hive form ---------- */
+function viewHiveForm(h){
+  const nums = active().map(x => parseInt(x.number,10)).filter(n => isFinite(n));
+  const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
+  F = {kind:"hive", id:h ? h.id : null, color:h ? h.color : COLORS[DB.hives.length % COLORS.length].id};
+  const apiaries = apiaryList(active()).filter(Boolean);
+  return {
+    back: h ? "#/v/"+h.id : "#/",
+    body:
+      '<h1>'+(h ? "Upravit včelstvo" : "Nové včelstvo")+'</h1>' +
+      '<div class="field"><label class="label" for="f-number">Číslo úlu</label>' +
+        '<input id="f-number" type="text" inputmode="numeric" autocomplete="off" value="'+esc(h ? h.number : nextNum)+'"><div class="error" id="err-number" hidden></div></div>' +
+      '<div class="field"><label class="label" for="f-name">Název <small>(nepovinné)</small></label>' +
+        '<input id="f-name" type="text" autocomplete="off" placeholder="např. U lípy" value="'+esc(h ? h.name : "")+'"></div>' +
+      '<div class="field"><label class="label" for="f-apiary">Stanoviště <small>(nepovinné)</small></label>' +
+        '<input id="f-apiary" type="text" autocomplete="off" placeholder="např. Zahrada" value="'+esc(h ? h.apiary : (apiaries.length === 1 ? apiaries[0] : ""))+'">' +
+        (apiaries.length ? '<div class="quick">'+apiaries.map(a => '<button class="chip" data-act="fill" data-target="f-apiary" data-value="'+esc(a)+'">'+esc(a)+'</button>').join("")+'</div>' : '') +
+        (h ? '<p class="hint">Když stanoviště změníte, zapíše se do historie přesun.</p>' : '') +
+      '</div>' +
+      '<div class="field"><span class="label">Barva úlu</span><p class="hint" style="margin:-.3rem 0 .6rem">Vyberte barvu, jakou má úl ve skutečnosti. Snáz ho pak v seznamu najdete.</p>' +
+        '<div class="choices cols-2">'+COLORS.map(c => '<button class="choice" data-act="choice" data-group="color" data-value="'+c.id+'" aria-pressed="'+(F.color===c.id)+'"><span class="swatch" style="background:'+c.hex+'"></span>'+c.n+'</button>').join("")+'</div></div>' +
+      (h && !h.retired ? '<h2>Včelstvo uhynulo, spojili jste ho nebo prodali?</h2><p class="muted">Vyřazené včelstvo zmizí ze seznamu, ale jeho historie zůstane.</p><button class="btn" data-act="go" data-href="#/v/'+h.id+'/vyradit">Vyřadit včelstvo</button>' : '') +
+      (h ? '<h2>Smazat úplně</h2><p class="muted">Jen když jste včelstvo přidali omylem. Smaže se i celá historie.</p><button class="btn danger" data-act="del-hive" data-hive="'+h.id+'">Smazat včelstvo i historii</button>' : ''),
+    footer:'<div class="row"><button class="btn" data-act="back" data-fallback="'+(h ? "#/v/"+h.id : "#/")+'">Zrušit</button><button class="btn primary" data-act="save-hive">Uložit</button></div>'
+  };
+}
+
+/* ---------- retire ---------- */
+function viewRetire(h){
+  F = {kind:"retire", hive:h.id, reason:null};
+  return {
+    back:"#/v/"+h.id,
+    body:
+      '<div class="detail-head">'+front(h)+'<div><div class="sub">'+hiveTitle(h)+'</div><h1>Vyřadit včelstvo</h1></div></div>' +
+      '<p class="muted" style="margin-bottom:1.4rem">Včelstvo zmizí ze seznamu, ale jeho historie zůstane. Kdykoli ho můžete vrátit.</p>' +
+      '<div class="field"><span class="label">Proč?</span><div class="choices">' +
+        Object.keys(RETIRE).map(k => choice("reason", k, RETIRE[k])).join("") +
+      '</div><div id="into-box" hidden style="margin-top:.8rem"><label class="label" for="f-into">S kterým úlem? <small>(číslo)</small></label><input id="f-into" type="text" inputmode="numeric" autocomplete="off"></div>' +
+      '<div class="error" id="err-form" hidden></div></div>' +
+      dateField() + noteField("např. zimní úhyn, vyloupeno"),
+    footer:'<div class="row"><button class="btn" data-act="back" data-fallback="#/v/'+h.id+'">Zrušit</button><button class="btn primary" data-act="save-retire">Vyřadit</button></div>'
+  };
+}
+function viewRetiredList(){
+  const hs = retiredHives().sort((a,b) => (b.retired.date||"").localeCompare(a.retired.date||""));
+  return {back:"#/", tab:"list", body:
+    '<h1>Vyřazená včelstva</h1>' +
+    (hs.length ? '<div class="hrows">' + hs.map(h =>
+      '<button class="hrow" data-act="go" data-href="#/v/'+h.id+'">'+front(h,"mini")+'<span class="hr-main"><strong>'+hiveTitle(h)+'</strong><span class="hr-sub"><span>'+RETIRE[h.retired.reason]+(h.retired.into?' (č. '+esc(h.retired.into)+')':'')+'</span><span>'+fmtDate(h.retired.date)+'</span></span></span><span class="chev" aria-hidden="true">›</span></button>').join("") + '</div>'
+      : '<p class="muted">Žádné vyřazené včelstvo.</p>')
+  };
+}
+
+/* ---------- record forms ---------- */
+function dateField(){
+  return '<div class="field"><label class="label" for="f-date">Datum</label><input id="f-date" type="date" value="'+today()+'" max="'+(Y+1)+'-12-31"></div>';
+}
+function noteField(ph){
+  return '<div class="field"><label class="label" for="f-note">Poznámka <small>(nepovinné)</small></label><textarea id="f-note" placeholder="'+esc(ph||"")+'"></textarea></div>';
+}
+function choice(group, value, label, pressed, extra){
+  return '<button class="choice '+(extra||"")+'" data-act="choice" data-group="'+group+'" data-value="'+esc(value)+'" aria-pressed="'+(!!pressed)+'">'+label+'</button>';
+}
+function kgStepper(def, quick){
+  return '<div class="stepper"><button data-act="step" data-target="f-kg" data-delta="-1" aria-label="Ubrat kilogram">−</button><input id="f-kg" type="text" inputmode="decimal" value="'+def+'"><button data-act="step" data-target="f-kg" data-delta="1" aria-label="Přidat kilogram">+</button></div>' +
+    '<div class="quick">'+quick.map(n => '<button class="chip" data-act="fill" data-target="f-kg" data-value="'+n+'">'+n+' kg</button>').join("")+'</div>';
+}
+function drugField(){
+  F.drug = DB.settings.lastDrug || null;
+  const isOther = F.drug && DRUGS.indexOf(F.drug) < 0;
+  const html = '<div class="field"><span class="label">Přípravek</span><div class="choices cols-2">' +
+      DRUGS.map(d => choice("drug", d, esc(d), F.drug === d)).join("") +
+      choice("drug", "__jiny", "Jiný…", isOther) +
+    '</div><div id="drug-other" '+(isOther?'':'hidden')+' style="margin-top:.7rem"><label class="label" for="f-drug">Název přípravku</label><input id="f-drug" type="text" autocomplete="off" value="'+(isOther?esc(F.drug):"")+'"></div></div>' +
+    '<div class="field"><label class="label" for="f-batch">Šarže přípravku <small>(nepovinné, hodí se pro evidenci)</small></label><input id="f-batch" type="text" autocomplete="off" value="'+esc(DB.settings.lastBatch && F.drug === DB.settings.lastDrug ? DB.settings.lastBatch : "")+'"></div>';
+  if(isOther) F.drug = "__jiny";
+  return html;
+}
+function feedChoices(){
+  F.feed = DB.settings.lastFeed || "roztok";
+  return '<div class="field"><span class="label">Čím jste krmili</span><div class="choices cols-2">' +
+    Object.keys(FEEDS).map(k => choice("feed", k, FEEDS[k], F.feed === k)).join("") + '</div></div>';
+}
+
+function viewRecordForm(h, type){
+  F = {kind:"record", hive:h.id, type};
+  let body = '<div class="detail-head">'+front(h)+'<div><div class="sub">'+hiveTitle(h)+(h.name?", "+esc(h.name):"")+'</div><h1>'+TYPES[type].e+' '+TYPES[type].t+'</h1></div></div>';
+
+  if(type === "prohlidka"){
+    F.health = null; F.strength = null; F.queenSeen = null; F.problems = [];
+    body += dateField() +
+      '<div class="field"><span class="label">Zdravotní stav</span><div class="choices">' +
+        choice("health","zdrave",'<span class="sym">✓</span>Zdravé',false,"h-ok") +
+        choice("health","podezreni",'<span class="sym">?</span>Podezření na nemoc',false,"h-warn") +
+        choice("health","nemocne",'<span class="sym">!</span>Nemocné',false,"h-bad") +
+      '</div></div>' +
+      '<div class="field" id="problems" hidden><span class="label">Co jste zpozorovali?</span><div class="quick">' +
+        Object.keys(PROBLEMS).map(k => '<button class="chip" data-act="multi" data-group="problems" data-value="'+k+'" aria-pressed="false">'+PROBLEMS[k]+'</button>').join("") +
+        '</div><div class="note-box bad" id="mor-note" hidden>Podezření na mor včelího plodu musíte ohlásit krajské veterinární správě.</div></div>' +
+      '<div class="field"><span class="label">Síla včelstva</span><div class="choices cols-3">' +
+        choice("strength","slabe",bars(1)+"Slabé") + choice("strength","stredni",bars(2)+"Střední") + choice("strength","silne",bars(3)+"Silné") +
+      '</div></div>' +
+      '<div class="field"><label class="label" for="f-frames">Obsazené rámky <small>(nepovinné)</small></label>' +
+        '<div class="stepper"><button data-act="step" data-target="f-frames" data-delta="-1" aria-label="Ubrat">−</button><input id="f-frames" type="text" inputmode="numeric" placeholder="–"><button data-act="step" data-target="f-frames" data-delta="1" aria-label="Přidat">+</button></div></div>' +
+      '<div class="field"><span class="label">Viděli jste matku nebo vajíčka? <small>(nepovinné)</small></span><div class="choices cols-2">' +
+        choice("queenSeen","ano","Ano") + choice("queenSeen","ne","Ne") +
+      '</div></div>' +
+      noteField("např. dost zásob, klidné včely") + '<div class="error" id="err-form" hidden></div>';
+  }
+
+  if(type === "krmeni"){
+    const fed = fedIn(h, Y);
+    body += (fed ? '<div class="note-box" style="margin:0 0 1.4rem">Letos už dostalo '+kg(fed)+' kg'+(DB.settings.feedTarget ? ' z '+kg(DB.settings.feedTarget)+' kg' : '')+'.</div>' : '') +
+      dateField() +
+      '<div class="field"><label class="label" for="f-kg">Kolik kilogramů</label>' + kgStepper(5, [2,3,5,8,10]) +
+        '<p class="hint">Zapisujte pokaždé stejně: buď kilogramy cukru, nebo kilogramy hotového krmiva.</p><div class="error" id="err-form" hidden></div></div>' +
+      feedChoices() + noteField();
+  }
+
+  if(type === "leceni"){
+    body += dateField() + drugField() +
+      '<div class="error" id="err-form" hidden></div>' +
+      '<div class="field"><label class="label" for="f-mites">Spad roztočů na podložce <small>(nepovinné)</small></label><input id="f-mites" type="text" inputmode="numeric" placeholder="počet roztočů"></div>' +
+      noteField("dávka, způsob podání");
+  }
+
+  if(type === "matka"){
+    F.year = null; F.marked = null;
+    const cur = state(h).queen;
+    const years = []; for(let y = Y; y >= Y - 5; y--) years.push(y);
+    body += (cur && cur.year ? '<div class="note-box" style="margin:0 0 1.4rem">Teď zapsaná matka: ročník '+cur.year+' ('+ageText(cur.year)+').</div>' : '') +
+      '<div class="field"><span class="label">Kdy se matka vylíhla?</span><div class="choices cols-2">' +
+        years.map(y => choice("year", String(y), '<span class="dot" style="background:'+markOf(y).hex+'"></span>'+y)).join("") +
+        choice("year", "nevim", "Nevím") +
+      '</div><p class="hint" id="mark-hint">Barvu značky podle roku doplníme sami.</p><div class="error" id="err-form" hidden></div></div>' +
+      '<div class="field"><span class="label">Je matka označená?</span><div class="choices cols-2">' + choice("marked","ano","Ano") + choice("marked","ne","Ne") + '</div></div>' +
+      dateField() + noteField("např. původ, linie, nová matka z oddělku");
+  }
+
+  if(type === "med"){
+    const hn = honeyIn(h, Y);
+    body += (hn ? '<div class="note-box" style="margin:0 0 1.4rem">Letos už od něj máte '+kg(hn)+' kg medu.</div>' : '') +
+      dateField() +
+      '<div class="field"><label class="label" for="f-kg">Kolik kilogramů medu</label>' + kgStepper(10, [5,10,15,20,25]) +
+      '<div class="error" id="err-form" hidden></div></div>' + noteField("např. květový, lesní");
+  }
+
+  return {
+    back:"#/v/"+h.id, body,
+    footer:'<div class="row"><button class="btn" data-act="back" data-fallback="#/v/'+h.id+'">Zrušit</button><button class="btn primary" data-act="save-record">Uložit</button></div>'
+  };
+}
+
+/* ---------- bulk ---------- */
+function viewBulkPick(){
+  const opts = [
+    ["leceni",ic("leceni"),"Léčení","Třeba celé stanoviště ošetřené Varidolem"],
+    ["krmeni",ic("krmeni"),"Krmení","Stejná dávka všem, nebo dokrmit do cíle"],
+    ["presun",ic("presun"),"Přesun","Převezení úlů na jiné stanoviště"]
+  ];
+  return {back:"#/", tab:"list", body:
+    '<h1>Zapsat více úlům najednou</h1><p class="muted" style="margin-bottom:1rem">Co chcete zapsat?</p><div class="bigopts">' +
+    opts.map(o => '<button class="bigopt" data-act="go" data-href="#/hromadne/'+o[0]+'"><span class="e" aria-hidden="true">'+o[1]+'</span><span><strong>'+o[2]+'</strong><br><span class="muted">'+o[3]+'</span></span></button>').join("") +
+    '</div><p class="hint" style="margin-top:1.2rem">Prohlídku a matku zapisujte u každého včelstva zvlášť.</p>'
+  };
+}
+function viewBulk(type, preset){
+  const hs = active().sort(byNumber);
+  if(!hs.length){ replaceTo("#/"); return null; }
+  const apis = apiaryList(hs);
+  const fl = new Map(hs.map(h => [h.id, flags(h)]));
+  F = {kind:"bulk", type, sel:new Set(), mode:"same"};
+  if(preset === "nedokrmene" || preset === "nelecene") hs.forEach(h => { if(fl.get(h.id)[preset]) F.sel.add(h.id); });
+  const target = DB.settings.feedTarget || 0;
+  const smart = type === "krmeni" && target ? ["nedokrmene","Nedokrmené"] : type === "leceni" ? ["nelecene","Neléčené letos"] : null;
+
+  let body = '<h1>'+TYPES[type].e+' '+TYPES[type].t+' více úlům</h1>' +
+    '<h2 style="margin-top:.5rem">1. Vyberte úly</h2><div class="quick" style="margin-top:0">' +
+      '<button class="chip" data-act="sel" data-mode="all">Všechny ('+hs.length+')</button>' +
+      (smart ? '<button class="chip" data-act="sel" data-mode="'+smart[0]+'">'+smart[1]+' ('+hs.filter(h => fl.get(h.id)[smart[0]]).length+')</button>' : '') +
+      '<button class="chip" data-act="sel" data-mode="none">Zrušit výběr</button></div>';
+  apis.forEach((a,i) => {
+    const gh = hs.filter(h => apiaryOf(h) === a);
+    body += '<div class="selgrp">' +
+      (apis.length > 1 ? '<div class="selhead"><strong>'+apiaryName(a)+'</strong><button class="chip" data-act="sel" data-mode="api:'+i+'">Celé stanoviště ('+gh.length+')</button></div>' : '') +
+      '<div class="tiles">' + gh.map(h => { const c = colorOf(h.color);
+        return '<button class="tile" data-act="tile" data-id="'+h.id+'" data-api="'+i+'" style="--hive:'+c.hex+';--hive-ink:'+c.ink+'" aria-pressed="false" aria-label="Úl číslo '+esc(h.number)+'">'+esc(h.number)+'</button>'; }).join("") +
+      '</div></div>';
+  });
+  body += '<h2>2. Co zapsat</h2>' + dateField();
+  if(type === "leceni") body += drugField() + noteField("dávka, způsob podání");
+  if(type === "krmeni"){
+    body += (target ? '<div class="field"><span class="label">Kolik dát</span><div class="choices">' +
+        choice("mode","same","Každému úlu stejně",true) +
+        choice("mode","fill","Každému, co mu chybí do "+kg(target)+" kg") + '</div></div>' : '') +
+      '<div class="field" id="kg-box"><label class="label" for="f-kg">Kolik kilogramů dostal každý úl</label>' + kgStepper(5, [2,3,5,8,10]) + '</div>' +
+      '<p class="hint" id="fill-hint" hidden style="margin:-1rem 0 1.6rem">Každý vybraný úl dostane tolik, kolik mu letos chybí do cíle. Úly, které už mají dost, se přeskočí.</p>' +
+      feedChoices() + noteField();
+  }
+  if(type === "presun"){
+    const ex = apis.filter(Boolean);
+    body += '<div class="field"><label class="label" for="f-apiary">Kam je převážíte?</label><input id="f-apiary" type="text" autocomplete="off" placeholder="název stanoviště">' +
+      (ex.length ? '<div class="quick">'+ex.map(a => '<button class="chip" data-act="fill" data-target="f-apiary" data-value="'+esc(a)+'">'+esc(a)+'</button>').join("")+'</div>' : '') +
+      '</div>' + noteField("např. kočování na řepku");
+  }
+  body += '<div class="error" id="err-form" hidden></div>';
+  return {
+    back:"#/hromadne", tab:"list", body,
+    footer:'<div class="row"><button class="btn" data-act="back" data-fallback="#/">Zrušit</button><button class="btn primary" data-act="save-bulk">Uložit: <span id="selcount"></span></button></div>',
+    after:updateSel
+  };
+}
+function updateSel(){
+  document.querySelectorAll(".tile").forEach(t => t.setAttribute("aria-pressed", String(F.sel.has(t.dataset.id))));
+  const c = document.getElementById("selcount"); if(c) c.textContent = hivesN(F.sel.size);
+}
+
+/* ---------- overview ---------- */
+function viewOverview(){
+  const hs = active().sort(byNumber);
+  if(!hs.length) return {tab:"prehled", body:'<h1>Přehled</h1><p class="muted">Až přidáte včelstva, uvidíte tady krmení a léčení všech úlů pohromadě.</p><button class="btn primary" data-act="go" data-href="#/nove">+ Přidat včelstvo</button>'};
+  const apis = apiaryList(hs);
+  const target = DB.settings.feedTarget || 0;
+  const fl = hs.map(h => [h, flags(h)]);
+  let html = '<h1>Přehled</h1>';
+
+  /* počty */
+  const retY = retiredHives().filter(h => (h.retired.date || "").slice(0,4) === String(ovYear));
+  const died = retY.filter(h => h.retired.reason === "uhynulo").length;
+  html += '<div class="card"><div class="stat">'+colonies(hs.length)+'</div>' +
+    (apis.length > 1 ? '<div class="muted">na '+apis.length+' stanovištích</div><ul class="plain">' +
+      apis.map(a => '<li><span>'+apiaryName(a)+'</span><strong>'+hs.filter(h => apiaryOf(h) === a).length+'</strong></li>').join("") + '</ul>' : '') +
+    '</div>';
+
+  /* pozornost */
+  const cats = [
+    ["Nemocné nebo podezření na nemoc", fl.filter(x => x[1].s.health && x[1].s.health.health !== "zdrave")],
+    ["Při prohlídce nebyla vidět matka ani vajíčka", fl.filter(x => x[1].s.lastInsp && x[1].s.lastInsp.queenSeen === "ne")],
+    ["Matka stará 3 roky a víc", fl.filter(x => x[1].s.queen && x[1].s.queen.year && Y - x[1].s.queen.year >= 3)],
+    ["Slabá včelstva", fl.filter(x => x[1].slabe)]
+  ].filter(c => c[1].length);
+  if(cats.length){
+    html += '<h2>Potřebují pozornost</h2>' + cats.map(c =>
+      '<div class="card"><div class="t">'+c[0]+' <span class="muted">('+c[1].length+')</span></div>'+numchips(c[1].map(x => x[0]))+'</div>').join("");
+  }
+
+  /* rok */
+  html += '<h2>Sezóna</h2><div class="yearbar"><button data-act="year" data-delta="-1" aria-label="Předchozí rok">‹</button><strong>'+ovYear+'</strong><button data-act="year" data-delta="1" aria-label="Další rok"'+(ovYear>=Y?' disabled style="opacity:.35"':'')+'>›</button></div>';
+  if(retY.length){
+    html += '<div class="card"><div class="t">Vyřazená včelstva v roce '+ovYear+'</div>' +
+      '<p>'+colonies(retY.length)+(died ? ', z toho uhynulo '+died+' (ztráty '+Math.round(died / (hs.length + died) * 100)+' %)' : '')+'.</p>' +
+      '<button class="btn" data-act="go" data-href="#/vyrazena">Zobrazit vyřazená</button></div>';
+  }
+
+  /* krmení */
+  const fedArr = hs.map(h => [h, fedIn(h, ovYear)]);
+  const total = fedArr.reduce((s,x) => s + x[1], 0);
+  const done = target ? fedArr.filter(x => x[1] >= target).length : 0;
+  const missing = target ? fedArr.reduce((s,x) => s + Math.max(0, target - x[1]), 0) : 0;
+  html += '<h2>Krmení na zimu</h2>' +
+    '<div class="field" style="margin-bottom:1rem"><span class="label">Kolik má dostat jedno včelstvo</span>' +
+      '<div class="stepper"><button data-act="target" data-delta="-1" aria-label="Méně">−</button><input id="f-target" type="text" inputmode="decimal" value="'+kg(target)+'" aria-label="Cíl v kilogramech"><button data-act="target" data-delta="1" aria-label="Více">+</button></div>' +
+      '<p class="hint">V kilogramech. Podle toho se počítá, kolik ještě chybí.</p></div>' +
+    '<div class="card">' +
+      (target ? '<div class="stat">'+done+' z '+hs.length+'</div><div class="muted">včelstev má dost krmení</div>' : '') +
+      (target && missing > 0 ? '<p><strong>Chybí ještě '+kg(missing)+' kg</strong> krmiva.</p>' : '') +
+      '<p>Zkrmeno celkem '+kg(total)+' kg, průměrně '+kg(total / hs.length)+' kg na včelstvo.</p>' +
+      (ovYear === Y && target && missing > 0 ? '<button class="btn honey" data-act="go" data-href="#/hromadne/krmeni/nedokrmene">Dokrmit nedokrmené najednou</button>' : '') +
+    '</div>';
+  if(ovOnlyMissing === null) ovOnlyMissing = hs.length >= BIG;
+  const onlyMissing = ovOnlyMissing && target;
+  const list = onlyMissing ? fedArr.filter(x => x[1] < target) : fedArr;
+  if(target) html += '<div class="filters" style="margin-top:1rem"><button class="chip" data-act="ovmiss" data-value="1" aria-pressed="'+!!ovOnlyMissing+'">Jen nedokrmené</button><button class="chip" data-act="ovmiss" data-value="0" aria-pressed="'+!ovOnlyMissing+'">Všechna včelstva</button></div>';
+  html += (list.length ? '<div class="ov-list" style="margin-top:.4rem">' + list.map(x => {
+      const h = x[0], f = x[1], pct = target ? Math.min(100, Math.round(f / target * 100)) : 0, rest = target - f;
+      return '<div class="ov-row">'+front(h,"mini")+'<div><div class="t">č. '+esc(h.number)+(h.name?' <span class="muted" style="font-weight:600">'+esc(h.name)+'</span>':'')+'</div>' +
+        '<div>'+kg(f)+(target?' / '+kg(target):'')+' kg</div>' +
+        (target ? '<div class="progress" aria-hidden="true"><b style="width:'+pct+'%"></b></div><div class="s">'+(rest > 0 ? 'Chybí '+kg(rest)+' kg' : '✓ Hotovo')+'</div>' : '') +
+        '</div>'+(ovYear === Y ? '<button class="add" data-act="go" data-href="#/v/'+h.id+'/krmeni">+ Krmit</button>' : '<span></span>')+'</div>';
+    }).join("") + '</div>' : '<p class="muted">Všechna včelstva mají dost krmení. ✓</p>');
+
+  /* léčení */
+  const tr = hs.map(h => [h, treatsIn(h, ovYear)]);
+  const treated = tr.filter(x => x[1].length), un = tr.filter(x => !x[1].length).map(x => x[0]);
+  const byDrug = {};
+  treated.forEach(x => new Set(x[1].map(r => r.drug)).forEach(d => { byDrug[d] = (byDrug[d] || 0) + 1; }));
+  html += '<h2>Léčení</h2><div class="card"><div class="stat">'+treated.length+' z '+hs.length+'</div><div class="muted">včelstev léčeno v roce '+ovYear+'</div>' +
+    (Object.keys(byDrug).length ? '<ul class="plain">' + Object.entries(byDrug).sort((a,b) => b[1]-a[1]).map(e => '<li><span>'+esc(e[0])+'</span><strong>'+hivesN(e[1])+'</strong></li>').join("") + '</ul>' : '') + '</div>';
+  if(un.length) html += '<div class="card"><div class="t">Neléčená ('+un.length+')</div>' + numchips(un) +
+    (ovYear === Y ? '<button class="btn honey" data-act="go" data-href="#/hromadne/leceni/nelecene">Zapsat léčení najednou</button>' : '') + '</div>';
+
+  /* med */
+  if(DB.settings.honey){
+    const hn = hs.map(h => [h, honeyIn(h, ovYear)]).filter(x => x[1] > 0).sort((a,b) => b[1]-a[1]);
+    const tot = hn.reduce((s,x) => s + x[1], 0);
+    html += '<h2>Med</h2><div class="card"><div class="stat">'+kg(tot)+' kg</div><div class="muted">'+(hn.length ? 'od '+hn.length+' '+plural(hn.length,"včelstva","včelstev","včelstev")+', průměrně '+kg(tot / hn.length)+' kg' : 'v roce '+ovYear+' zatím nic nezapsáno')+'</div>' +
+      (hn.length > 1 ? '<div class="t" style="margin-top:1rem">Nejvíc medu</div><ul class="plain">' + hn.slice(0,5).map(x =>
+        '<li><button class="linkish" data-act="go" data-href="#/v/'+x[0].id+'">č. '+esc(x[0].number)+'</button><strong>'+kg(x[1])+' kg</strong></li>').join("") + '</ul>' : '') + '</div>';
+  }
+  return {tab:"prehled", body:html};
+}
+
+/* ---------- settings ---------- */
+function viewSettings(){
+  const sc = DB.settings.scale || 1, v = DB.settings.view || "auto";
+  const count = DB.hives.length, recs = DB.hives.reduce((s,h) => s + h.records.length, 0), nRet = retiredHives().length;
+  const set = (act, val, label, on) => '<button class="choice" data-act="'+act+'" data-value="'+val+'" aria-pressed="'+on+'">'+label+'</button>';
+  return {tab:"vice", body:
+    '<h1>Nastavení</h1>' +
+    '<div class="field"><span class="label">Velikost písma</span><div class="choices cols-3">' +
+      [[1,"Normální"],[1.2,"Větší"],[1.4,"Největší"]].map(o =>
+        '<button class="choice" data-act="scale" data-value="'+o[0]+'" aria-pressed="'+(sc===o[0])+'"><span style="font-family:var(--display);font-size:'+(o[0]*1.3)+'rem;font-weight:700">Aa</span>'+o[1]+'</button>').join("") +
+    '</div></div>' +
+    '<div class="field"><span class="label">Zobrazení včelstev</span><div class="choices cols-2">' +
+      '<button class="choice" data-act="setview" data-value="tiles" aria-pressed="'+(DB.settings.view!=="rows")+'">'+ic("grid")+'Jako úly</button>' +
+      '<button class="choice" data-act="setview" data-value="rows" aria-pressed="'+(DB.settings.view==="rows")+'">'+ic("list")+'Jako seznam</button>' +
+    '</div></div>' +
+    '<div class="field"><span class="label">Zapisovat výnosy medu</span><div class="choices cols-2">' +
+      set("sethoney","1","Ano", !!DB.settings.honey) + set("sethoney","0","Ne", !DB.settings.honey) +
+    '</div></div>' +
+    '<h2>Tabulky do Excelu</h2><p>Hodí se pro evidenci léčiv, kontrolu nebo vlastní přehledy.</p>' +
+    '<button class="btn" data-act="csv" data-kind="leceni" data-year="'+Y+'">Evidence léčení '+Y+'</button>' +
+    '<button class="btn" data-act="csv" data-kind="leceni" data-year="'+(Y-1)+'">Evidence léčení '+(Y-1)+'</button>' +
+    '<button class="btn" data-act="csv" data-kind="vse">Všechny záznamy</button>' +
+    '<h2>Záloha</h2>' +
+    '<p>Všechny záznamy jsou uložené jen v tomto telefonu ('+colonies(count)+', '+recs+' '+plural(recs,"záznam","záznamy","záznamů")+'). Občas si uložte zálohu, ať o ně nepřijdete.</p>' +
+    '<button class="btn primary" data-act="export">Uložit zálohu</button>' +
+    '<button class="btn" data-act="import">Nahrát zálohu</button>' +
+    '<h2>Ukázková data</h2>' +
+    '<button class="btn" data-act="demo" data-size="small">Ukázka se 4 včelstvy</button>' +
+    '<button class="btn" data-act="demo" data-size="big">Ukázka velkého včelařství (52 včelstev)</button>' +
+    '<h2>Ostatní</h2>' +
+    (nRet ? '<button class="btn" data-act="go" data-href="#/vyrazena">Vyřazená včelstva ('+nRet+')</button>' : '') +
+    '<button class="btn danger" data-act="wipe"'+(count?'':' disabled style="opacity:.4"')+'>Smazat všechna data</button>' +
+    '<p class="hint" style="margin-top:2rem">Včelí deník, verze 2.0</p>'
+  };
+}
+
+/* ================= modal & toast ================= */
+let onYes = null;
+function modal(html){
+  const m = document.getElementById("modal");
+  m.innerHTML = '<div class="sheet" role="dialog" aria-modal="true">'+html+'</div>';
+  m.hidden = false;
+  const b = m.querySelector("[data-first]") || m.querySelector("button");
+  if(b) b.focus();
+}
+function closeModal(silent){ const m = document.getElementById("modal"); m.hidden = true; m.innerHTML = ""; if(!silent) onYes = null; }
+function confirmBox(title, text, yes, fn){
+  onYes = fn;
+  modal('<h3>'+title+'</h3>'+(text?'<p>'+text+'</p>':'')+
+    '<button class="btn danger-fill" data-act="yes" style="margin-top:1rem">'+yes+'</button><button class="btn" data-act="close" data-first>Ne, nechat být</button>');
+}
+let toastT;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.remove("hide");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.add("hide"), 2400);
+}
+document.getElementById("modal").addEventListener("click", e => { if(e.target.id === "modal") closeModal(); });
+
+/* ================= actions ================= */
+function setPressed(btn, group){
+  document.querySelectorAll('[data-group="'+group+'"]').forEach(b => b.setAttribute("aria-pressed", String(b === btn)));
+}
+function showErr(id, msg){ const el = document.getElementById(id); if(el){ el.textContent = msg; el.hidden = false; el.scrollIntoView({block:"center"}); } }
+const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+function rerenderKeepScroll(){ const y = window.scrollY; render(); window.scrollTo(0, y); }
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if(!b || b.disabled) return;
+  const a = b.dataset.act;
+
+  if(a === "go"){ go(b.dataset.href); return; }
+  if(a === "back"){ back(b.dataset.fallback); return; }
+  if(a === "close"){ closeModal(); return; }
+  if(a === "yes"){ const fn = onYes; closeModal(); if(fn) fn(); return; }
+
+  if(a === "choice"){
+    const g = b.dataset.group, v = b.dataset.value;
+    F[g] = v; setPressed(b, g);
+    if(g === "health") document.getElementById("problems").hidden = (v === "zdrave");
+    if(g === "drug"){ const o = document.getElementById("drug-other"); o.hidden = v !== "__jiny"; if(v === "__jiny") document.getElementById("f-drug").focus(); }
+    if(g === "year"){ document.getElementById("mark-hint").textContent = v === "nevim" ? "Nevadí, rok můžete doplnit později." : "Barva značky pro ročník "+v+": "+markOf(+v).n+"."; }
+    if(g === "reason"){ document.getElementById("into-box").hidden = v !== "spojeno"; }
+    if(g === "mode"){ document.getElementById("kg-box").hidden = v === "fill"; document.getElementById("fill-hint").hidden = v !== "fill"; }
+    return;
+  }
+  if(a === "multi"){
+    const g = b.dataset.group, v = b.dataset.value, arr = F[g] || (F[g] = []);
+    const i = arr.indexOf(v); if(i >= 0) arr.splice(i,1); else arr.push(v);
+    b.setAttribute("aria-pressed", String(i < 0));
+    if(g === "problems") document.getElementById("mor-note").hidden = arr.indexOf("mor") < 0;
+    return;
+  }
+  if(a === "step"){
+    const inp = document.getElementById(b.dataset.target);
+    let n = num(inp.value); if(!isFinite(n)) n = 0;
+    n = Math.max(0, n + (+b.dataset.delta));
+    inp.value = (b.dataset.target === "f-frames" && n === 0) ? "" : kg(n);
+    return;
+  }
+  if(a === "fill"){ document.getElementById(b.dataset.target).value = b.dataset.value; return; }
+
+  /* list */
+  if(a === "lfilter" || a === "lapi"){
+    if(a === "lfilter") listFilter = b.dataset.value; else listApiary = b.dataset.value;
+    listQuery = ""; rerenderKeepScroll();
+    if(!document.getElementById("modal").hidden) openOptions();
+    return;
+  }
+  if(a === "clear-filter"){ listFilter = "vse"; listApiary = "__all"; rerenderKeepScroll(); return; }
+  if(a === "options"){ openOptions(); return; }
+  if(a === "clear-q"){ listQuery = ""; const q = document.getElementById("q"); if(q){ q.value = ""; q.focus(); } applyListView(); return; }
+
+  /* bulk */
+  if(a === "tile"){ const id = b.dataset.id; if(F.sel.has(id)) F.sel.delete(id); else F.sel.add(id); updateSel(); return; }
+  if(a === "sel"){
+    const mode = b.dataset.mode, tiles = [...document.querySelectorAll(".tile")];
+    if(mode === "all") tiles.forEach(t => F.sel.add(t.dataset.id));
+    else if(mode === "none") F.sel.clear();
+    else if(mode.indexOf("api:") === 0){
+      const g = tiles.filter(t => t.dataset.api === mode.slice(4));
+      const allOn = g.every(t => F.sel.has(t.dataset.id));
+      g.forEach(t => allOn ? F.sel.delete(t.dataset.id) : F.sel.add(t.dataset.id));
+    } else { F.sel.clear(); active().forEach(h => { if(flags(h)[mode]) F.sel.add(h.id); }); }
+    updateSel(); return;
+  }
+
+  if(a === "save-hive") return saveHive();
+  if(a === "save-record") return saveRecord();
+  if(a === "save-bulk") return saveBulk();
+  if(a === "save-retire") return saveRetire();
+
+  if(a === "restore"){
+    const h = hiveById(b.dataset.hive);
+    const dup = active().find(x => String(x.number).toLowerCase() === String(h.number).toLowerCase());
+    if(dup){ toast("Číslo "+h.number+" už má jiné aktivní včelstvo. Nejdřív ho změňte v Upravit."); return; }
+    h.retired = null; persist(); render(); toast("Včelstvo je zpět v seznamu"); return;
+  }
+  if(a === "del-hive"){
+    const h = hiveById(b.dataset.hive);
+    confirmBox("Smazat včelstvo č. "+esc(h.number)+"?", "Smažou se i všechny jeho záznamy. Nejde to vrátit.", "Ano, smazat", () => {
+      DB.hives = DB.hives.filter(x => x.id !== h.id); persist(); toast("Včelstvo smazáno"); resetTo("#/");
+    });
+    return;
+  }
+  if(a === "rec"){
+    const h = hiveById(b.dataset.hive), r = h && h.records.find(x => x.id === b.dataset.rec);
+    if(!r) return;
+    onYes = null;
+    const T = TYPES[r.type] || {e:"•", t:"Záznam"};
+    modal('<h3>'+T.e+' '+T.t+', '+fmtDate(r.date)+'</h3><p>'+esc(summary(r))+'</p>'+(r.note?'<p class="muted">„'+esc(r.note)+'“</p>':'')+
+      '<button class="btn" data-act="close" data-first style="margin-top:1rem">Zavřít</button><button class="btn danger" data-act="del-rec" data-hive="'+h.id+'" data-rec="'+r.id+'">Smazat tento záznam</button>');
+    return;
+  }
+  if(a === "del-rec"){
+    const hid = b.dataset.hive, rid = b.dataset.rec;
+    confirmBox("Opravdu smazat záznam?", "", "Ano, smazat", () => {
+      const h = hiveById(hid); if(!h) return;
+      h.records = h.records.filter(x => x.id !== rid); persist(); render(); toast("Záznam smazán");
+    });
+    return;
+  }
+
+  /* overview */
+  if(a === "year"){ ovYear = Math.min(Y, ovYear + (+b.dataset.delta)); rerenderKeepScroll(); return; }
+  if(a === "ovmiss"){ ovOnlyMissing = b.dataset.value === "1"; rerenderKeepScroll(); return; }
+  if(a === "target"){
+    let n = num(val("f-target")); if(!isFinite(n)) n = DB.settings.feedTarget || 0;
+    DB.settings.feedTarget = Math.max(0, n + (+b.dataset.delta)); persist(); rerenderKeepScroll(); return;
+  }
+
+  /* settings */
+  if(a === "scale"){ DB.settings.scale = +b.dataset.value; persist(); render(); return; }
+  if(a === "setview"){ DB.settings.view = b.dataset.value; persist(); rerenderKeepScroll(); if(DB.settings.onboarded) toast("Uloženo"); return; }
+  if(a === "welcome-done"){ DB.settings.onboarded = true; persist(); resetTo("#/"); window.scrollTo(0,0); return; }
+  if(a === "sethoney"){ DB.settings.honey = b.dataset.value === "1"; persist(); rerenderKeepScroll(); toast(DB.settings.honey ? "U včelstev přibylo tlačítko Med" : "Zapisování medu vypnuto"); return; }
+  if(a === "csv"){ exportCsv(b.dataset.kind, b.dataset.year); return; }
+  if(a === "demo"){
+    const size = b.dataset.size;
+    if(DB.hives.length) confirmBox("Nahradit data ukázkou?", "Současná včelstva a záznamy v telefonu se smažou.", "Ano, nahradit", () => loadDemo(size));
+    else loadDemo(size);
+    return;
+  }
+  if(a === "wipe"){
+    confirmBox("Smazat všechna data?", "Zmizí všechna včelstva i záznamy z tohoto telefonu. Pokud nemáte zálohu, nejde to vrátit.", "Ano, smazat vše", () => {
+      const keep = {scale:DB.settings.scale, view:DB.settings.view, onboarded:true}; DB = blank(); Object.assign(DB.settings, keep); persist(); toast("Vše smazáno"); resetTo("#/");
+    });
+    return;
+  }
+  if(a === "export"){ doExport(); return; }
+  if(a === "import"){ if(!toApp({action:"import"})) document.getElementById("file").click(); return; }
+  if(a === "copy"){
+    const ta = document.getElementById("backup-text"); ta.select();
+    let ok = false; try{ ok = document.execCommand("copy"); }catch(err){}
+    if(navigator.clipboard) navigator.clipboard.writeText(ta.value).then(() => toast("Zkopírováno"), () => { toast(ok ? "Zkopírováno" : "Text označte a zkopírujte ručně"); });
+    else toast(ok ? "Zkopírováno" : "Text označte a zkopírujte ručně");
+    return;
+  }
+});
+
+document.addEventListener("input", e => {
+  if(e.target.id === "q"){ listQuery = e.target.value; applyListView(); }
+});
+document.addEventListener("keydown", e => {
+  if(e.target.id === "q" && e.key === "Enter"){
+    const vis = [...document.querySelectorAll("#hlist [data-num]")].filter(el => !el.hidden);
+    if(vis.length === 1){ e.preventDefault(); listQuery = ""; go(vis[0].dataset.href); }
+  }
+});
+document.addEventListener("change", e => {
+  if(e.target.id === "f-target"){
+    const n = num(e.target.value);
+    if(isFinite(n) && n >= 0){ DB.settings.feedTarget = n; persist(); rerenderKeepScroll(); }
+  }
+});
+
+/* ================= save ================= */
+function saveHive(){
+  const number = val("f-number");
+  if(!number){ showErr("err-number","Vyplňte číslo úlu."); document.getElementById("f-number").focus(); return; }
+  const dup = active().find(x => x.id !== F.id && String(x.number).trim().toLowerCase() === number.toLowerCase());
+  if(dup){ showErr("err-number","Číslo "+number+" už má jiné včelstvo."); return; }
+  const data = {number, name:val("f-name"), apiary:val("f-apiary"), color:F.color};
+  if(F.id){
+    const h = hiveById(F.id);
+    const from = apiaryOf(h), to = data.apiary;
+    if(from !== to) h.records.push({id:uid(), t:Date.now(), type:"presun", date:today(), note:"", from, to});
+    Object.assign(h, data); persist(); toast("Uloženo"); back("#/v/"+F.id);
+  } else {
+    const h = Object.assign({id:uid(), records:[], retired:null, created:Date.now()}, data);
+    DB.hives.push(h); persist(); toast("Včelstvo přidáno"); replaceTo("#/v/"+h.id);
+  }
+}
+
+function saveRecord(){
+  const h = hiveById(F.hive); if(!h) return;
+  const r = {id:uid(), t:Date.now(), type:F.type, date:val("f-date") || today(), note:val("f-note")};
+  if(F.type === "prohlidka"){
+    if(!F.health && !F.strength){ showErr("err-form","Vyberte aspoň zdravotní stav nebo sílu včelstva."); return; }
+    r.health = F.health; r.strength = F.strength; r.queenSeen = F.queenSeen;
+    r.problems = F.health && F.health !== "zdrave" ? F.problems.slice() : [];
+    const fr = parseInt(val("f-frames"),10); r.frames = isFinite(fr) && fr > 0 ? fr : null;
+  }
+  if(F.type === "krmeni" || F.type === "med"){
+    const n = num(val("f-kg"));
+    if(!isFinite(n) || n <= 0){ showErr("err-form","Zadejte počet kilogramů (víc než 0)."); return; }
+    r.kg = Math.round(n*10)/10;
+    if(F.type === "krmeni"){ r.feed = F.feed; DB.settings.lastFeed = F.feed; }
+  }
+  if(F.type === "leceni"){
+    const d = F.drug === "__jiny" ? val("f-drug") : F.drug;
+    if(!d){ showErr("err-form", F.drug === "__jiny" ? "Napište název přípravku." : "Vyberte přípravek."); return; }
+    r.drug = d; r.batch = val("f-batch"); DB.settings.lastDrug = d; DB.settings.lastBatch = r.batch;
+    const m = parseInt(val("f-mites"),10); r.mites = isFinite(m) && m >= 0 ? m : "";
+  }
+  if(F.type === "matka"){
+    if(!F.year){ showErr("err-form","Vyberte rok, nebo zvolte „Nevím“."); return; }
+    r.year = F.year === "nevim" ? null : +F.year; r.marked = F.marked;
+  }
+  h.records.push(r); persist(); toast("Uloženo ✓"); back("#/v/"+h.id);
+}
+
+function saveBulk(){
+  if(!F.sel.size){ showErr("err-form","Vyberte nahoře aspoň jeden úl."); window.scrollTo(0,0); return; }
+  const date = val("f-date") || today(), note = val("f-note"), t = Date.now();
+  const hs = active().filter(h => F.sel.has(h.id));
+  let n = 0;
+  if(F.type === "leceni"){
+    const d = F.drug === "__jiny" ? val("f-drug") : F.drug;
+    if(!d){ showErr("err-form", F.drug === "__jiny" ? "Napište název přípravku." : "Vyberte přípravek."); return; }
+    const batch = val("f-batch");
+    DB.settings.lastDrug = d; DB.settings.lastBatch = batch;
+    hs.forEach(h => { h.records.push({id:uid(), t, type:"leceni", date, note, drug:d, batch, mites:""}); n++; });
+  }
+  if(F.type === "krmeni"){
+    const target = DB.settings.feedTarget || 0, y = date.slice(0,4);
+    let amt = null;
+    if(F.mode !== "fill"){
+      amt = num(val("f-kg"));
+      if(!(amt > 0)){ showErr("err-form","Zadejte, kolik kilogramů dostal každý úl."); return; }
+    }
+    hs.forEach(h => {
+      const k = Math.round((F.mode === "fill" ? target - fedIn(h, y) : amt) * 10) / 10;
+      if(k > 0){ h.records.push({id:uid(), t, type:"krmeni", date, note, kg:k, feed:F.feed}); n++; }
+    });
+    DB.settings.lastFeed = F.feed;
+    if(!n){ toast("Vybrané úly už mají dost krmení"); return; }
+  }
+  if(F.type === "presun"){
+    const to = val("f-apiary");
+    if(!to){ showErr("err-form","Napište, na které stanoviště úly převážíte."); return; }
+    hs.forEach(h => { const from = apiaryOf(h); if(from !== to){ h.records.push({id:uid(), t, type:"presun", date, note, from, to}); h.apiary = to; n++; } });
+    if(!n){ toast("Vybrané úly už na tomto stanovišti jsou"); return; }
+  }
+  persist(); toast("Zapsáno: " + hivesN(n));
+  if(stack.length > 2 && stack[stack.length-2] === "#/hromadne") history.go(-2); else back("#/");
+}
+
+function saveRetire(){
+  const h = hiveById(F.hive); if(!h) return;
+  if(!F.reason){ showErr("err-form","Vyberte důvod."); return; }
+  h.retired = {reason:F.reason, date:val("f-date") || today(), into:F.reason === "spojeno" ? val("f-into") : "", note:val("f-note")};
+  persist(); toast("Včelstvo č. "+h.number+" vyřazeno"); resetTo("#/");
+}
+
+/* ================= export / backup ================= */
+let downloads = null;
+(async () => { try{ if(window.claude && typeof window.claude.use === "function") downloads = await window.claude.use("downloads"); }catch(e){ downloads = null; } })();
+
+async function saveFile(name, text, title){
+  if(toApp({action:"save", filename:name, data:text})) return;
+  if(downloads){
+    try{ await downloads.save({filename:name, data:text}); toast("Soubor uložen"); return; }
+    catch(err){
+      if(err && err.code === "declined"){ toast("Soubor nebyl uložen"); return; }
+      if(err && err.code === "rate_limited"){ toast("Chvíli počkejte a zkuste to znovu"); return; }
+    }
+  }
+  try{
+    const file = new File([text], name, {type: name.endsWith(".csv") ? "text/csv" : "application/json"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:title});
+      return;
+    }
+  }catch(err){ if(err && err.name === "AbortError") return; }
+  modal('<h3>'+title+'</h3><p>Soubor tady nejde uložit přímo. Zkopírujte text a vložte ho do poznámek nebo zprávy sami sobě.</p>' +
+    '<textarea id="backup-text" readonly>'+esc(text)+'</textarea>' +
+    '<button class="btn primary" data-act="copy" style="margin-top:1rem">Zkopírovat</button><button class="btn" data-act="close">Zavřít</button>');
+}
+function doExport(){ saveFile("vceli-denik-zaloha-" + today() + ".json", JSON.stringify(DB, null, 1), "Záloha dat"); }
+function csv(rows){
+  return "\uFEFF" + rows.map(r => r.map(c => {
+    c = String(c == null ? "" : c);
+    return /[;"\n\r]/.test(c) ? '"' + c.replace(/"/g,'""') + '"' : c;
+  }).join(";")).join("\r\n");
+}
+function exportCsv(kind, year){
+  const all = [];
+  DB.hives.slice().sort(byNumber).forEach(h => h.records.forEach(r => all.push([h, r])));
+  all.sort((a,b) => a[1].date < b[1].date ? -1 : a[1].date > b[1].date ? 1 : byNumber(a[0], b[0]));
+  if(kind === "leceni"){
+    const rows = all.filter(x => x[1].type === "leceni" && x[1].date.slice(0,4) === String(year));
+    if(!rows.length){ toast("V roce "+year+" není zapsané žádné léčení"); return; }
+    saveFile("evidence-leceni-"+year+".csv", csv([["Datum","Stanoviště","Číslo úlu","Přípravek","Šarže","Spad roztočů","Poznámka"]].concat(
+      rows.map(x => [fmtDate(x[1].date), apiaryOf(x[0]), x[0].number, x[1].drug, x[1].batch || "", x[1].mites, x[1].note || ""]))), "Evidence léčení "+year);
+  } else {
+    if(!all.length){ toast("Zatím nejsou žádné záznamy"); return; }
+    saveFile("vceli-denik-zaznamy-"+today()+".csv", csv([["Datum","Stanoviště","Číslo úlu","Záznam","Podrobnosti","Poznámka"]].concat(
+      all.map(x => [fmtDate(x[1].date), apiaryOf(x[0]), x[0].number, (TYPES[x[1].type]||{t:x[1].type}).t, summary(x[1]), x[1].note || ""]))), "Všechny záznamy");
+  }
+}
+document.getElementById("file").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = "";
+  if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => importText(rd.result);
+  rd.readAsText(f);
+});
+function importText(text){
+  let d; try{ d = JSON.parse(text); }catch(err){ d = null; }
+  if(!d || !Array.isArray(d.hives)){ toast("Tento soubor není záloha Včelího deníku"); return; }
+  const n = d.hives.length;
+  confirmBox("Nahrát zálohu?", "Záloha obsahuje "+colonies(n)+". Současná data v telefonu se nahradí.", "Ano, nahrát", () => {
+    DB = normalize(d); DB.settings.onboarded = true; persist(); toast("Záloha nahrána"); resetTo("#/");
+  });
+}
+/* volá aplikace: vybraný soubor zálohy, a při spuštění data uložená v telefonu */
+window.__importText = importText;
+window.__appData = function(text){
+  let d; try{ d = JSON.parse(text); }catch(err){ return; }
+  if(!d || !Array.isArray(d.hives)) return;
+  DB = normalize(d);
+  try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){}
+  storageOk = true; render();
+};
+
+/* ================= demo ================= */
+function loadDemo(size){
+  const d = (m,day) => Y+"-"+String(m).padStart(2,"0")+"-"+String(Math.min(28, Math.max(1, day))).padStart(2,"0");
+  const R = (type, date, x) => Object.assign({id:uid(), t:Date.now(), type, date, note:""}, x);
+  const keep = {scale:DB.settings.scale, view:DB.settings.view, onboarded:true};
+  DB = blank(); Object.assign(DB.settings, keep);
+  if(size === "big"){
+    let seed = 20260924;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    const ri = (a,b) => a + Math.floor(rnd() * (b - a + 1));
+    const pick = arr => arr[Math.floor(rnd() * arr.length)];
+    let no = 1;
+    [["Zahrada",12],["U lesa",24],["Za humny",16]].forEach(ap => {
+      for(let i = 0; i < ap[1]; i++){
+        const h = {id:uid(), number:String(no++), name:"", apiary:ap[0], color:pick(COLORS).id, retired:null, records:[]};
+        const qy = Y - ri(0,4);
+        h.records.push(R("matka", qy === Y ? d(6, ri(1,28)) : d(5, ri(1,28)), {year:qy, marked:rnd() < .75 ? "ano" : "ne"}));
+        const x = rnd(), health = x < .05 ? "nemocne" : x < .14 ? "podezreni" : "zdrave";
+        const y2 = rnd(), strength = y2 < .14 ? "slabe" : y2 < .55 ? "stredni" : "silne";
+        const fr = strength === "slabe" ? ri(3,5) : strength === "stredni" ? ri(6,8) : ri(9,11);
+        h.records.push(R("prohlidka", d(8, ri(8,28)), {health, strength, frames:fr, queenSeen:rnd() < .07 ? "ne" : "ano",
+          problems: health === "zdrave" ? [] : [pick(["varroaza","kridla","nosema","vapenaty"])]}));
+        h.records.push(R("med", d(6, ri(10,25)), {kg:ri(6,18)}));
+        if(rnd() < .8) h.records.push(R("med", d(7, ri(15,28)), {kg:ri(4,14)}));
+        const plan = rnd() < .4 ? [5,5,5] : rnd() < .5 ? [8,4] : rnd() < .6 ? [5] : [];
+        plan.forEach((k,j) => h.records.push(R("krmeni", d(8 + (j > 1 ? 1 : 0), 5 + j * 10), {kg:k, feed:j ? "invert" : "roztok"})));
+        if(rnd() < .8) h.records.push(R("leceni", d(8, ri(3,12)), {drug:"Formidol", batch:"F24-0617", mites:ri(5,90)}));
+        if(rnd() < .35) h.records.push(R("leceni", d(9, ri(10,20)), {drug:"Gabon PF 90", batch:"G25-112", mites:""}));
+        DB.hives.push(h);
+      }
+    });
+    [["uhynulo",""],["uhynulo",""],["spojeno","14"]].forEach(r => {
+      DB.hives.push({id:uid(), number:String(no++), name:"", apiary:"U lesa", color:pick(COLORS).id, records:[],
+        retired:{reason:r[0], date:d(3, ri(2,25)), into:r[1], note:r[0] === "uhynulo" ? "zimní úhyn" : ""}});
+    });
+    DB.settings.honey = true;
+  } else {
+    DB.hives = [
+      {id:uid(), number:"1", name:"U lípy", apiary:"Zahrada", color:"zluta", retired:null, records:[
+        R("matka", d(5,20), {year:Y-1, marked:"ano"}),
+        R("prohlidka", d(7,28), {health:"zdrave", strength:"silne", frames:9, queenSeen:"ano", problems:[]}),
+        R("krmeni", d(8,2), {kg:5, feed:"roztok"}), R("krmeni", d(8,16), {kg:5, feed:"roztok"}), R("krmeni", d(9,1), {kg:4, feed:"invert"}),
+        R("leceni", d(8,10), {drug:"Formidol", batch:"", mites:42, note:"po vytočení"})
+      ]},
+      {id:uid(), number:"2", name:"", apiary:"Zahrada", color:"modra", retired:null, records:[
+        R("matka", d(6,1), {year:Y-3, marked:"ano"}),
+        R("prohlidka", d(8,20), {health:"podezreni", strength:"stredni", frames:6, queenSeen:"ano", problems:["varroaza","kridla"], note:"pár včel s pokrčenými křídly"}),
+        R("krmeni", d(8,22), {kg:5, feed:"roztok"})
+      ]},
+      {id:uid(), number:"3", name:"Oddělek", apiary:"Zahrada", color:"zelena", retired:null, records:[
+        R("matka", d(6,15), {year:Y, marked:"ne"}),
+        R("prohlidka", d(9,5), {health:"zdrave", strength:"slabe", frames:4, queenSeen:"ne", problems:[]}),
+        R("krmeni", d(9,6), {kg:3, feed:"testo"})
+      ]},
+      {id:uid(), number:"4", name:"", apiary:"Za lesem", color:"cervena", retired:null, records:[
+        R("prohlidka", d(8,28), {health:"zdrave", strength:"silne", frames:10, queenSeen:null, problems:[]}),
+        R("krmeni", d(8,28), {kg:10, feed:"invert"}), R("krmeni", d(9,14), {kg:6, feed:"invert"}),
+        R("leceni", d(9,15), {drug:"Gabon PF 90", batch:"", mites:""})
+      ]}
+    ];
+  }
+  persist(); toast(size === "big" ? "Ukázka: 52 včelstev" : "Ukázková včelstva vložena"); resetTo("#/");
+}
+
+render();
+if("serviceWorker" in navigator && location.protocol === "https:" && !/claude/.test(location.hostname)){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(() => {}); }
+})();
+</script>
+</body>
+</html>
