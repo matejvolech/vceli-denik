@@ -727,7 +727,7 @@ function viewList(){
     (attention ? ', ' + (big ? '<button data-act="lfilter" data-value="pozor">'+attention+' '+plural(attention,"potřebuje","potřebují","potřebuje")+' pozornost</button>'
                              : attention+' '+plural(attention,"potřebuje","potřebují","potřebuje")+' pozornost') : '') + '</div>' +
     (all.length >= 2 ? '<button class="btn soft" data-act="options">'+ic("sliders")+'Možnosti</button>' : '') + '</div>';
-  if(sampleFn) html += '<button class="dict-cta" data-act="go" data-href="#/diktovat"><span class="ico">'+ic("mic")+'</span><span><strong>Mluvená prohlídka</strong><br><span class="muted">Nadiktujte prohlídku všech úlů, aplikace ji zapíše sama.</span></span><span class="chev">›</span></button>';
+  html += '<button class="dict-cta" data-act="go" data-href="#/diktovat"><span class="ico">'+ic("mic")+'</span><span><strong>Mluvená prohlídka</strong><br><span class="muted">Nadiktujte prohlídku všech úlů, aplikace ji zapíše sama.</span></span><span class="chev">›</span></button>';
   if(big) html += '<div class="search">'+ic("search")+'<input id="q" type="search" inputmode="numeric" enterkeyhint="go" autocomplete="off" placeholder="Najít úl podle čísla" aria-label="Najít úl podle čísla" value="'+esc(listQuery)+'"><button class="clear" data-act="clear-q" aria-label="Smazat hledání">✕</button></div>';
   if(listFilter !== "vse" || listApiary !== "__all"){
     html += '<div class="filter-on"><span>Jen '+[listApiary !== "__all" ? apiaryName(listApiary) : "", listFilter !== "vse" ? FILTERS[listFilter].toLowerCase() : ""].filter(Boolean).join(", ")+'</span><button class="link-btn" data-act="clear-filter">Zobrazit vše</button></div>';
@@ -1180,6 +1180,264 @@ function viewOverview(){
   return {tab:"prehled", body:html};
 }
 
+/* ===== Rozpoznávání diktované prohlídky (offline, bez AI) ===== */
+const CZMAP = {"á":"a","č":"c","ď":"d","é":"e","ě":"e","í":"i","ň":"n","ó":"o","ř":"r","š":"s","ť":"t","ú":"u","ů":"u","ý":"y","ž":"z","ä":"a","ö":"o","ü":"u","Á":"a","Č":"c","Ď":"d","É":"e","Ě":"e","Í":"i","Ň":"n","Ó":"o","Ř":"r","Š":"s","Ť":"t","Ú":"u","Ů":"u","Ý":"y","Ž":"z"};
+// stejná délka jako originál -> pozice se dají přenášet zpět
+function czNorm(s){ let o = ""; for(const ch of s){ o += CZMAP[ch] || ch.toLowerCase(); } return o; }
+
+const UNITS = {nula:0, jedna:1, jeden:1, jedno:1, jednu:1, jednoho:1, dva:2, dve:2, dvou:2, dvema:2, tri:3, trech:3, tremi:3, ctyri:4, ctyr:4, ctyrech:4, ctyrmi:4, pet:5, peti:5, sest:6, sesti:6, sedm:7, sedmi:7, osm:8, osmi:8, devet:9, deviti:9};
+const TEENS = {deset:10, deseti:10, jedenact:11, jedenacti:11, dvanact:12, dvanacti:12, trinact:13, trinacti:13, ctrnact:14, ctrnacti:14, patnact:15, patnacti:15, sestnact:16, sestnacti:16, sedmnact:17, sedmnacti:17, osmnact:18, osmnacti:18, devatenact:19, devatenacti:19};
+const TENS = {dvacet:20, dvaceti:20, tricet:30, triceti:30, ctyricet:40, ctyriceti:40, padesat:50, padesati:50, sedesat:60, sedesati:60, sedmdesat:70, osmdesat:80, devadesat:90};
+const HUND = {sto:100, dveste:200, trista:300, ctyrista:400, petset:500};
+const ALLNUM = Object.assign({}, UNITS, TEENS, TENS, HUND);
+const byLen = o => Object.keys(o).sort((a, b) => b.length - a.length).join("|");
+const U_ALT = byLen(UNITS), T_ALT = byLen(TENS), N_ALT = byLen(ALLNUM);
+const U_SIMPLE = "jedna|jeden|dva|dve|tri|ctyri|pet|sest|sedm|osm|devet";
+const NUM_PART = "(?:\\d+[a-z]?|(?:" + T_ALT + ")\\s+(?:" + U_ALT + ")|(?:" + U_SIMPLE + ")a(?:" + T_ALT + ")|(?:" + N_ALT + "))";
+
+function wordsToNumber(w){
+  w = w.trim();
+  if(/^\d/.test(w)) return w;
+  let m = w.match(new RegExp("^(" + T_ALT + ")\\s+(" + U_ALT + ")$"));
+  if(m) return String(TENS[m[1]] + UNITS[m[2]]);
+  m = w.match(new RegExp("^(" + U_SIMPLE + ")a(" + T_ALT + ")$"));
+  if(m) return String(TENS[m[2]] + UNITS[m[1]]);
+  return ALLNUM[w] != null ? String(ALLNUM[w]) : w;
+}
+// čísla slovy -> číslice (v normalizovaném textu)
+function convertNums(t){
+  t = t.replace(new RegExp("\\b(" + T_ALT + ")\\s+(" + U_ALT + ")\\b", "g"), (m, a, b) => String(TENS[a] + UNITS[b]));
+  t = t.replace(new RegExp("\\b(" + U_SIMPLE + ")a(" + T_ALT + ")\\b", "g"), (m, a, b) => String(TENS[b] + UNITS[a]));
+  t = t.replace(new RegExp("\\b(" + byLen(HUND) + ")\\s+(\\d+|" + N_ALT + ")\\b", "g"), (m, a, b) => String(HUND[a] + Number(wordsToNumber(b))));
+  t = t.replace(new RegExp("\\b(" + N_ALT + ")\\b", "g"), m => String(ALLNUM[m]));
+  t = t.replace(/\b(\d+)\s*a\s*pul\b/g, (m, a) => String(Number(a) + 0.5));
+  t = t.replace(/\b(\d+),(\d+)\b/g, "$1.$2");
+  t = t.replace(/\bpul\b/g, "0.5");
+  return t;
+}
+
+const ORD = {prvn:1, druh:2, tret:3, ctvrt:4, pat:5, sest:6, sedm:7, osm:8, devat:9, desat:10, jedenact:11, dvanact:12, trinact:13, ctrnact:14, patnact:15, sestnact:16, sedmnact:17, osmnact:18, devatenact:19, dvacat:20};
+const KA = {jednick:1, dvojk:2, trojk:3, ctyrk:4, petk:5, sestk:6, sedmick:7, osmick:8, devitk:9, desitk:10, jedenactk:11, dvanactk:12, trinactk:13, ctrnactk:14, patnactk:15, sestnactk:16, sedmnactk:17, osmnactk:18, devatenactk:19, dvacitk:20};
+const KA_ALL = {}; Object.keys(KA).forEach(k => { KA_ALL[k] = KA[k]; KA_ALL[k.slice(0, -1) + "c"] = KA[k]; }); // dvanáctce
+
+const RE_ANCHOR = new RegExp("\\b(?:u\\s+|na\\s+|v\\s+|k\\s+)?(?:ul|ulu|ule|ulem|uly|vcelstvo|vcelstva|vcelstvu|vcelstvem|cislo|c\\.)\\s*(?:c\\.|cislo|cis\\.)?\\s*(" + NUM_PART + ")\\b", "g");
+const RE_ORD = new RegExp("\\b(" + byLen(ORD) + ")(?:i|y|a|e|eho|em|emu|im|imu)\\s+(?:ul|ulu|ule|ulem|vcelstv\\w*)\\b", "g");
+const RE_NUMUL = /\b(\d+)\.?\s*(?:ul|ulu|vcelstvo|vcelstvu)\b/g;
+const RE_KA = new RegExp("\\b(" + byLen(KA_ALL) + ")(?:a|u|y|ou|e)\\b", "g");
+const RE_NEXT = /\b(?:dalsi|nasledujici)\s+(?:ul\w*|vcelstv\w*)\b|(?:^|[.!?\n]\s*)(?:dalsi|nasledujici)(?=\s*[.,:!?\n]|\s*$)/g;
+
+const POS = /^(vidim|vidime|videl|videla|videli|videt|viden\w*|vidi|nasel|nasla|nasli|nalez\w*|spatr\w*|zahled\w*|je|jsou|ano|mam|ma|maji|bezi|behala|behal|beha|klade|kladla|zaklada|zakladeno|zakladene|poradku|ok|zije|pritomn\w*|tady|vidno|videna|videno|potkal|nachazim)$/;
+const NEG = /^(nevidim|nevidime|nevidel\w*|neviden\w*|nevidi|nenasel\w*|nenasla|nenalez\w*|nespatr\w*|nezahled\w*|neni|nejsou|nebyl\w*|nema|nemam|nemaji|chybi|chybel\w*|ne|ani|bez|zadn\w*|zadna|zadne|nic|neklade|nezaklada|nezakladeno|nepritomn\w*|nikde)$/;
+const QUEEN = /^(matk\w*|matce|kralovn\w*)$/;
+const EGGS = /^(vajic\w*|vajick\w*|zakladeni|zakladenim)$/;
+
+function polarityAround(tokens, idx){
+  for(let d = 1; d <= 3; d++){
+    const cand = [tokens[idx + d], tokens[idx - d]];   // při stejné vzdálenosti má přednost slovo za podstatným jménem („matka ano“)
+    for(const t of cand){
+      if(!t) continue;
+      if(NEG.test(t)) return "ne";
+      if(POS.test(t)) return "ano";
+    }
+  }
+  return null;
+}
+
+const DICT_DRUGS = [
+  [/varidol/, "Varidol"], [/gabon/, "Gabon PF 90"], [/formidol/, "Formidol"], [/\bm\s*-?\s*1\s*-?\s*aer|\bm1\b|\baerosol\w*/, "M-1 AER"],
+  [/oxuvar/, "Oxuvar"], [/apiguard/, "Apiguard"], [/th?ymovar/, "Thymovar"], [/apivar/, "Apivar"], [/bioxal/, "Api-Bioxal"],
+  [/stavelov|oxalov/, "Kyselina šťavelová"], [/mravenc/, "Kyselina mravenčí"]
+];
+const FILLER = /^(tak|tak dobre|dobre|dobry|hotovo|konec|to je vse|to je vsechno|a|no|jo|takze|jeste|potom|pak|ted)$/;
+
+function parseClause(raw, c, out, ctx){
+  // raw = původní text, c = normalizovaný text s čísly v číslicích
+  const tokens = c.split(/[^a-z0-9.]+/).filter(Boolean).map(t => t.replace(/\.$/, ""));
+  let hit = false;
+  const hasQueen = tokens.some(t => QUEEN.test(t)), hasEggs = tokens.some(t => EGGS.test(t));
+
+  // --- matka a vajíčka ---
+  if(/\bosirel\w*|\bbezmatec\w*|\bbez matky\b/.test(c)){ out.queenSeen = "ne"; if(!out.eggsSeen) out.eggsSeen = "ne"; ctx.notes.push("osiřelé"); hit = true; }
+  tokens.forEach((t, i) => {
+    if(QUEEN.test(t)){
+      if(i > 0 && /^(nov\w*|letosn\w*|mlad\w*|lonsk\w*|predlonsk\w*|stara|stary)$/.test(tokens[i - 1]) && !polarityAround(tokens, i)) return;
+      const p = polarityAround(tokens, i) || (tokens.length === 1 ? "ano" : null);
+      if(p){ out.queenSeen = p; hit = true; }
+    }
+    if(EGGS.test(t)){
+      const p = polarityAround(tokens, i) || (tokens.length === 1 ? "ano" : null);
+      if(p){ out.eggsSeen = p; hit = true; }
+    }
+  });
+  if(/\bnezaklad\w*/.test(c)){ out.eggsSeen = "ne"; hit = true; }
+  else if(/\b(zaklada|zakladeno|zakladene|zakladla)\b/.test(c) && !hasEggs){ out.eggsSeen = /\b(neni|ne)\s+zaklad/.test(c) ? "ne" : "ano"; hit = true; }
+  if(/\b(otevren\w*|mlad\w*|cerstv\w*)\s+plod\w*/.test(c)){ out.eggsSeen = "ano"; hit = true; }
+  if(/\b(bez|zadn\w*)\s+plod\w*|\bplod\w*\s+(neni|zadny|chybi)\b|\bneni\s+(tam\s+)?(zadny\s+)?plod/.test(c)){ out.eggsSeen = "ne"; hit = true; }
+
+  // ročník a značení matky
+  let qy = null;
+  if(/\b(nov\w*|letosn\w*|mlad\w*)\s+matk|\bmatk\w*\s+(?:je\s+)?(nov\w*|letosn\w*|mlad\w*)\b|\b(vymen\w*|pridal\w*|pridan\w*|zaved\w*|dal\w*\s+novou)\s+(?:\w+\s+)?matk/.test(c)) qy = ctx.Y;
+  if(/\blonsk\w*\s+matk|\bmatk\w*\s+(?:je\s+)?lonsk/.test(c)) qy = ctx.Y - 1;
+  if(/\bpredlonsk\w*\s+matk|\bmatk\w*\s+(?:je\s+)?predlonsk/.test(c)) qy = ctx.Y - 2;
+  const my = c.match(/\bmatk\w*\s+(?:je\s+)?(?:z\s+)?(?:roku\s+|rocnik\w*\s+|rocniku\s+)?(20\d\d)\b|\b(20\d\d)\s+matk/);
+  if(my) qy = Number(my[1] || my[2]);
+  if(qy && qy >= ctx.Y - 6 && qy <= ctx.Y + 1){ out.qyear = qy; hit = true; }
+  const aboutQueen = hasQueen || ctx.lastQueen;
+  if(aboutQueen && /\bneoznacen\w*|\bneznacen\w*|\bbez znack/.test(c)){ out.marked = "ne"; hit = true; }
+  else if(aboutQueen && /\boznacen\w*|\bznacen\w*|\bma znack|\bse znack|\bs tecko/.test(c)){ out.marked = "ano"; hit = true; }
+  ctx.lastQueen = hasQueen;
+
+  // --- zdraví a problémy ---
+  const mitesCount = c.match(/\b(\d+)\s*(?:spadl\w*\s+)?(?:roztoc\w*|klestik\w*)/) || c.match(/\b(?:spad\w*|roztoc\w*|klestik\w*|podlozk\w*|podlozc\w*)\D{0,24}?(\d+)\b(?!\s*(?:kg|kil|l\b|litr|ramk|ramc|plast))/);
+  const probs = [];
+  if(/varr?oa|varr?oaz/.test(c) || (/roztoc|klestik/.test(c) && !mitesCount)) probs.push("varroaza");
+  if(/\bkrid\w*/.test(c) && /(zmrz|pokrc|deform|poskoz|zakrn|kratk|zkrouc|zmacka)/.test(c) || /\bdwv\b/.test(c)) probs.push("kridla");
+  if(/\bmor\w*\b/.test(c) && !/\bmorav/.test(c)) probs.push("mor");
+  if(/hnilob|hnije|hnilic|hnilob/.test(c)) probs.push("hniloba");
+  if(/nosem|pruj|pokalen|pokakan/.test(c)) probs.push("nosema");
+  if(/vapen|mumi/.test(c)) probs.push("vapenaty");
+  probs.forEach(p => { if(out.problems.indexOf(p) < 0) out.problems.push(p); hit = true; });
+
+  let health = null;
+  if(/\b(neni|nejsou|zadn\w*|bez|nic\s+nema|nema\s+zadn\w*)\s+(\w+\s+)?(nemoc\w*|nakaz\w*|chorob\w*|priznak\w*)/.test(c)) health = "zdrave";
+  else if(/\bnemocn\w*|\bnemoc\b|\bnemoci\b|\bnakazen\w*|\bnakaz\w*|\bchorob\w*/.test(c)) health = /\b(asi|mozna|snad|nejspis|podezr\w*)\b/.test(c) ? "podezreni" : "nemocne";
+  else if(/\bpodezr\w*|\bpochybn\w*|\bnejist\w*|\bdivn\w*\s+plod|\bnecim\s+trpi/.test(c)) health = "podezreni";
+  else if(/\bneni\s+zdrav/.test(c)) health = "podezreni";
+  else if(/\bzdrav(e|y|a|i|icko)\b|\bbez problemu\b|\bvse ok\b|\bvsechno ok\b|\bje ok\b|\bvypada dobre\b|\bvse v poradku\b|\bvsechno v poradku\b/.test(c) || (/\bv poradku\b/.test(c) && !hasQueen && !hasEggs)) health = "zdrave";
+  if(health){
+    const rank = {zdrave:0, podezreni:1, nemocne:2};
+    if(!out.health || rank[health] > rank[out.health]) out.health = health;
+    hit = true;
+  }
+
+  // --- síla ---
+  let st = null;
+  if(/\bstredn\w*|\bprumern\w*|\bnormaln\w*|\bslusn\w*|\bucheln\w*/.test(c)) st = "stredni";
+  else if(/\bslab\w*|\bmalo vcel|\boslaben\w*|\bubyv\w*|\bslaboun\w*|\bslabot\w*/.test(c)) st = "slabe";
+  else if(/\bsiln\w*|\bhodne vcel|\bplno vcel|\bplne vcel|\bnarvan\w*|\bnabit\w*|\bvelk\w* vcelstv|\bmasa vcel|\bspousta vcel/.test(c) && !/\bneni\s+(moc\s+)?siln/.test(c)) st = "silne";
+  else if(/\bneni\s+(moc\s+)?siln/.test(c)) st = "stredni";
+  if(st){ out.strength = st; hit = true; }
+
+  // --- rámky ---
+  const fr = c.match(/\b(\d+)\s*(?:az\s*\d+\s*)?(?:obsazen\w*\s*|obsednut\w*\s*|pln\w*\s*|plne\s*)?(?:ramk\w*|ramc\w*|ramek|ramu|ramy|plast\w*|ulic\w*|ulick\w*)/) ||
+             c.match(/\b(?:ramk\w*|ramc\w*|plast\w*|ulic\w*|obsed\w*|obsazen\w*|obsaz\w*)\s*(?:je\s*|jich\s*je\s*|asi\s*|kolem\s*|zhruba\s*|na\s*)?(\d+)\b(?!\s*(?:kg|kil|l\b|litr))/);
+  const frameAction = /\b(dal|dala|pridal\w*|vlozil\w*|vyndal\w*|odebral\w*|vymenil\w*|vzal\w*|presunul\w*|souse|mezistén|mezisten\w*)\b/.test(c);
+  if(fr && !frameAction){ const n = parseInt(fr[1], 10); if(n > 0 && n <= 40){ out.frames = n; hit = true; } }
+
+  // --- množství (krmení / med) ---
+  let amt = null, unitL = false;
+  const am = c.match(/\b(\d+(?:\.\d+)?)\s*(kg|kil\w*|l|litr\w*)\b/);
+  if(am){ amt = Number(am[1]); unitL = /^l/.test(am[2]); }
+  else if(/\b(kilo|kila)\b/.test(c)) amt = 1;
+  const honeyCtx = /\bmed\b|\bmedu\b|\bmedem\b|vytoc\w*|vytac\w*|medobran\w*|medny\w*\s+vynos/.test(c);
+  const feedCtx = /krm\w*|test\w*|fondan|apifond|pogac|sirup|roztok|cukr|invert|\bdal\b|\bdala\b|\bdal jsem\b|pridal|nalil|dostal\w*|dokrm|prikrm|nakrm/.test(c);
+  if(amt && amt > 0 && amt < 100){
+    if(honeyCtx && !/krm/.test(c)){ out.honey = (out.honey || 0) + amt; hit = true; }
+    else if(feedCtx && !/\bnekrm/.test(c)){
+      out.kg = (out.kg || 0) + amt; hit = true;
+      if(unitL) ctx.notes.push("krmení zadáno v litrech (" + String(amt).replace(".", ",") + " l)");
+      if(/test\w*|fondan|apifond|pogac/.test(c)) out.feed = "testo";
+      else if(/invert/.test(c)) out.feed = "invert";
+      else if(/roztok|sirup|cukr/.test(c)) out.feed = "roztok";
+    }
+  }
+
+  // --- léčení ---
+  let drug = null;
+  for(const [re, name] of DICT_DRUGS){ if(re.test(c)){ drug = name; break; } }
+  const treatVerb = /\b(?:za|pro|vy|do|pre)?(?:lecil\w*|lecen\w*|leceno|lecb\w*|leci|lecim)\b|osetr\w*|\baplik\w*|fumig\w*|vykour\w*|vykur\w*|\bpask\w*|\bpasek\b|odparovac\w*/.test(c);
+  if(!drug && treatVerb){ drug = /fumig|vykour|vykur/.test(c) ? "Fumigace" : /pask|pasek/.test(c) ? "Pásky" : "Ošetření"; }
+  if(drug && !/\bnelec\w*|\bneosetr\w*/.test(c)){ out.drug = drug; hit = true; }
+  if(mitesCount){ const n = parseInt(mitesCount[1], 10); if(n >= 0 && n < 100000){ out.mites = n; hit = true; } }
+
+  if(!hit){
+    const cleaned = raw.trim().replace(/^[,;:\-–\s]+|[,;:\-–\s]+$/g, "");
+    if(cleaned && !FILLER.test(czNorm(cleaned)) && cleaned.length > 1) ctx.notes.push(cleaned);
+  }
+  return hit;
+}
+
+function parseDictation(text, hives, Y){
+  const O = String(text || "");
+  const N = czNorm(O);
+  const list = hives.slice();
+  const byNum = n => list.find(h => String(h.number).trim().toLowerCase() === String(n).trim().toLowerCase());
+  const anchors = [];
+  const add = (s, e, num) => { anchors.push({s, e, num}); };
+  let m;
+  RE_ANCHOR.lastIndex = 0; while((m = RE_ANCHOR.exec(N))){ add(m.index, m.index + m[0].length, wordsToNumber(m[1])); }
+  RE_ORD.lastIndex = 0; while((m = RE_ORD.exec(N))){ add(m.index, m.index + m[0].length, String(ORD[m[1]])); }
+  RE_NUMUL.lastIndex = 0; while((m = RE_NUMUL.exec(N))){ add(m.index, m.index + m[0].length, m[1]); }
+  RE_KA.lastIndex = 0; while((m = RE_KA.exec(N))){ const n = String(KA_ALL[m[1]]); if(byNum(n)) add(m.index, m.index + m[0].length, n); }
+  RE_NEXT.lastIndex = 0; while((m = RE_NEXT.exec(N))){ add(m.index, m.index + m[0].length, "__next"); }
+  list.forEach(h => {
+    const nm = czNorm(String(h.name || "")).trim();
+    if(nm.length >= 3){
+      const re = new RegExp("\\b" + nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g");
+      while((m = re.exec(N))) add(m.index, m.index + m[0].length, String(h.number));
+    }
+  });
+  anchors.sort((a, b) => a.s - b.s || b.e - a.e);
+  const clean = [];
+  anchors.forEach(a => { const last = clean[clean.length - 1]; if(last && a.s < last.e) return; clean.push(a); });
+
+  const sorted = list.slice().sort((a, b) => String(a.number).localeCompare(String(b.number), "cs", {numeric:true}));
+  const segs = [];
+  if(!clean.length) segs.push({num:"?", s:0, e:O.length});
+  else{
+    if(clean[0].s > 0) segs.push({num:"?", s:0, e:clean[0].s});
+    let prevNum = null;
+    clean.forEach((a, i) => {
+      let num = a.num;
+      if(num === "__next"){
+        const idx = prevNum ? sorted.findIndex(h => String(h.number) === String(prevNum)) : -1;
+        const nx = sorted[idx + 1];
+        num = nx ? String(nx.number) : "?";
+      }
+      prevNum = num;
+      segs.push({num, s:a.e, e:i + 1 < clean.length ? clean[i + 1].s : O.length});
+    });
+  }
+
+  const results = [], byKey = {};
+  segs.forEach(sg => {
+    const out = {num:sg.num, health:null, problems:[], strength:null, frames:null, queenSeen:null, eggsSeen:null, kg:null, feed:null, drug:"", mites:null, qyear:null, marked:null, honey:null};
+    const ctx = {Y, notes:[]};
+    const segN = N.slice(sg.s, sg.e), segO = O.slice(sg.s, sg.e);
+    // rozdělit na věty a části vět (pozice zůstávají stejné)
+    const sepRe = /[.;!?\n]+|,(?!\d)|\s+-\s+|\s+–\s+|\s+ale\s+|\s+avsak\s+|\s+pak\s+|\s+potom\s+|\s+dale\s+|\s+a\s+jeste\s+|\s+a\s+taky\s+|\s+a\s+take\s+/g;
+    let last = 0, sm, any = false;
+    const pieces = [];
+    while((sm = sepRe.exec(segN))){ pieces.push([last, sm.index]); last = sm.index + sm[0].length; }
+    pieces.push([last, segN.length]);
+    pieces.forEach(([a, b]) => {
+      const rawP = segO.slice(a, b), nP = segN.slice(a, b);
+      if(!nP.trim()) return;
+      if(parseClause(rawP, convertNums(nP), out, ctx)) any = true;
+    });
+    if(out.health === "zdrave" && out.problems.length) out.health = "podezreni";
+    if(!out.health && out.problems.length) out.health = "podezreni";
+    out.note = ctx.notes.filter((v, i, arr) => arr.indexOf(v) === i).join(", ");
+    if(out.note) out.note = out.note.charAt(0).toUpperCase() + out.note.slice(1);
+    if(!any && !out.note && sg.num === "?") return;
+    const h = sg.num !== "?" ? byNum(sg.num) : null;
+    const key = h ? h.id : "?" + results.length;
+    if(byKey[key]){
+      const prev = byKey[key];
+      ["health","strength","frames","queenSeen","eggsSeen","feed","mites","qyear","marked"].forEach(k => { if(out[k] != null) prev[k] = out[k]; });
+      if(out.drug) prev.drug = out.drug;
+      if(out.kg) prev.kg = (prev.kg || 0) + out.kg;
+      if(out.honey) prev.honey = (prev.honey || 0) + out.honey;
+      out.problems.forEach(p => { if(prev.problems.indexOf(p) < 0) prev.problems.push(p); });
+      if(out.note) prev.note = prev.note ? prev.note + ", " + out.note.charAt(0).toLowerCase() + out.note.slice(1) : out.note;
+      return;
+    }
+    out.hive = h ? h.id : null; out.include = !!h;
+    byKey[key] = out; results.push(out);
+  });
+  return results;
+}
+
 /* ---------- mluvená prohlídka ---------- */
 let sampleFn = null;
 (async () => {
@@ -1205,7 +1463,7 @@ function viewDict(){
       '<p class="hint">Ťukněte do pole a na klávesnici zvolte <strong>mikrofon</strong>. Pak už jen mluvte. Text můžete kdykoli opravit.</p>' +
       (SR ? '<button class="btn" data-act="dict-rec" id="rec-btn" style="margin-top:.8rem">'+ic("mic")+(recogOn ? 'Zastavit nahrávání' : 'Nahrávat hlasem')+'</button>' : '') +
     '</div>' +
-    (sampleFn ? '' : '<div class="note-box bad">Mluvená prohlídka zatím funguje jen ve zkušební verzi aplikace na claude.ai.</div>');
+    '<p class="hint">Rozpoznávání funguje přímo v telefonu, i bez internetu.</p>';
   return {back:"#/", tab:"list", body,
     footer:'<div class="row"><button class="btn" data-act="back" data-fallback="#/">Zrušit</button><button class="btn primary" data-act="dict-run">Zpracovat</button></div>'};
 }
@@ -1233,8 +1491,8 @@ function dictPrompt(text){
   return "Jsi asistent českého včelaře. Níže je přepis diktované prohlídky včelstev. Přepis vznikl hlasovým diktováním, takže může obsahovat chyby (např. „úl dvanáct“ znamená úl 12, „rámečky“ i „plásty“ znamenají obsazené rámky). Každý úl začíná zmínkou o jeho čísle (nebo názvu).\n\n" +
     "Úkol: pro každý zmíněný úl vytáhni údaje. Co nebylo řečeno, dej null. Nic nevymýšlej a nedomýšlej.\n\n" +
     "Vrať POUZE JSON objekt bez dalšího textu v tomto tvaru:\n" +
-    '{"ule":[{"cislo":"12","zdravi":"zdrave|podezreni|nemocne|null","problemy":[],"sila":"slabe|stredni|silne|null","ramky":null,"matka":"ano|ne|null","vajicka":"ano|ne|null","krmeni_kg":null,"krmivo":"roztok|invert|testo|jine|null","leceni":null,"spad":null,"rocnik_matky":null,"poznamka":null}]}\n\n' +
-    "Pravidla: zdravi: zdravé → zdrave, podezření/asi nemocné → podezreni, nemocné → nemocne. problemy: pole klíčů z varroaza (roztoči, kleštík), kridla (zmrzačená/pokrčená křídla), mor (mor včelího plodu), hniloba, nosema (nosematóza, průjem), vapenaty (vápenatý plod), jine. sila: slabé/střední/silné. ramky: celé číslo, počet obsazených rámků. matka: viděl matku → ano, neviděl → ne. vajicka: viděl vajíčka/zakladení → ano, neviděl → ne. krmeni_kg: kolik kilogramů krmiva dostalo (číslo). krmivo: cukerný roztok/sirup → roztok, invertní sirup/Apiinvert → invert, krmné těsto → testo, jinak jine. leceni: název přípravku, pokud se léčilo (Varidol, Gabon, Formidol, M-1 AER, Oxuvar, Apiguard…), jinak null. spad: počet spadlých roztočů, pokud zazněl. rocnik_matky: rok vylíhnutí nové matky, jen pokud byl výslovně řečen. poznamka: krátká česká věta s tím, co zaznělo a nevejde se do polí (např. zásoby, mírnost), jinak null. cislo: číslo úlu jako text; pokud včelař úl označil názvem, použij číslo úlu s tím názvem ze seznamu.\n\n" +
+    '{"ule":[{"cislo":"12","zdravi":"zdrave|podezreni|nemocne|null","problemy":[],"sila":"slabe|stredni|silne|null","ramky":null,"matka":"ano|ne|null","vajicka":"ano|ne|null","krmeni_kg":null,"krmivo":"roztok|invert|testo|jine|null","leceni":null,"spad":null,"rocnik_matky":null,"matka_oznacena":"ano|ne|null","med_kg":null,"poznamka":null}]}\n\n' +
+    "Pravidla: zdravi: zdravé → zdrave, podezření/asi nemocné → podezreni, nemocné → nemocne. problemy: pole klíčů z varroaza (roztoči, kleštík), kridla (zmrzačená/pokrčená křídla), mor (mor včelího plodu), hniloba, nosema (nosematóza, průjem), vapenaty (vápenatý plod), jine. sila: slabé/střední/silné. ramky: celé číslo, počet obsazených rámků. matka: viděl matku → ano, neviděl → ne. vajicka: viděl vajíčka/zakladení → ano, neviděl → ne. krmeni_kg: kolik kilogramů krmiva dostalo (číslo). krmivo: cukerný roztok/sirup → roztok, invertní sirup/Apiinvert → invert, krmné těsto → testo, jinak jine. leceni: název přípravku, pokud se léčilo (Varidol, Gabon, Formidol, M-1 AER, Oxuvar, Apiguard…), jinak null. spad: počet spadlých roztočů, pokud zazněl. rocnik_matky: rok vylíhnutí nové matky, jen pokud byl výslovně řečen (letošní = aktuální rok). matka_oznacena: označená/značená → ano, neoznačená → ne. med_kg: kolik kilogramů medu se vytočilo/odebralo. poznamka: krátká česká věta s tím, co zaznělo a nevejde se do polí (např. zásoby, mírnost), jinak null. cislo: číslo úlu jako text; pokud včelař úl označil názvem, použij číslo úlu s tím názvem ze seznamu.\n\n" +
     "Úly v aplikaci: " + JSON.stringify(hs) + "\n\nPřepis:\n\"\"\"\n" + text + "\n\"\"\"";
 }
 function pickHive(num){
@@ -1257,6 +1515,7 @@ function normDict(arr){
       kg:numOr(u.krmeni_kg), feed:oneOf(u.krmivo, ["roztok","invert","testo","jine"]),
       drug:u.leceni ? String(u.leceni).slice(0, 60) : "", mites:numOr(u.spad) ? Math.round(numOr(u.spad)) : null,
       qyear:(() => { const y = parseInt(u.rocnik_matky, 10); return y >= Y - 6 && y <= Y + 1 ? y : null; })(),
+      marked:oneOf(u.matka_oznacena, ["ano","ne"]), honey:numOr(u.med_kg),
       note:u.poznamka ? String(u.poznamka).slice(0, 300) : ""
     };
   });
@@ -1265,8 +1524,13 @@ async function runDict(){
   const ta = document.getElementById("f-dict"), text = ta ? ta.value.trim() : "";
   DICT.text = text; DICT.date = val("f-date") || today();
   if(text.length < 8){ toast("Nejdřív nadiktujte, co jste u úlů viděli"); return; }
-  if(!sampleFn){ toast("Mluvená prohlídka funguje zatím jen ve verzi na claude.ai"); return; }
   if(!active().length){ toast("Nejdřív přidejte včelstva"); return; }
+  if(!sampleFn){
+    if(recogOn) toggleRec();
+    DICT.results = parseDictation(text, active(), Y).map(r => Object.assign({drug:"", note:"", problems:[]}, r, {drug:r.drug || "", note:r.note || ""}));
+    if(!DICT.results.length){ toast("V textu jsem nic nerozpoznal. Začněte vždy číslem úlu."); return; }
+    go("#/diktovat/kontrola"); return;
+  }
   if(recogOn) toggleRec();
   modal('<h3>Zpracovávám…</h3><p class="muted">AI čte, co jste nadiktoval, a připravuje záznamy. Obvykle to trvá 5 až 30 vteřin.</p><div class="spinner" aria-hidden="true"></div>');
   try{
@@ -1304,7 +1568,9 @@ function viewDictReview(){
       '<div class="drow"><span class="lab">Krmení</span><div style="display:flex;gap:.5rem;align-items:center"><input type="text" inputmode="decimal" data-dfield="kg" data-i="'+i+'" value="'+(r.kg ? kg(r.kg) : "")+'" placeholder="0" style="max-width:6rem"><span class="muted">kg</span></div></div>' +
       (r.kg ? '<div class="drow"><span class="lab">Krmivo</span>'+dChips(i, "feed", Object.keys(FEEDS).map(k => [k, FEEDS[k]]), r.feed)+'</div>' : '') +
       '<div class="drow"><span class="lab">Léčení</span><input type="text" data-dfield="drug" data-i="'+i+'" value="'+esc(r.drug)+'" placeholder="přípravek, pokud se léčilo"></div>' +
-      (r.qyear ? '<div class="drow"><span class="lab">Nová matka</span><span>ročník '+r.qyear+'</span></div>' : '') +
+      (r.qyear ? '<div class="drow"><span class="lab">Nová matka</span><span>ročník '+r.qyear+(r.marked === "ano" ? ', označená' : r.marked === "ne" ? ', neoznačená' : '')+'</span></div>' : '') +
+      (r.honey ? '<div class="drow"><span class="lab">Med</span><div style="display:flex;gap:.5rem;align-items:center"><input type="text" inputmode="decimal" data-dfield="honey" data-i="'+i+'" value="'+kg(r.honey)+'" style="max-width:6rem"><span class="muted">kg</span></div></div>' : '') +
+      (r.mites != null && !r.drug ? '<div class="drow"><span class="lab">Spad</span><span>'+r.mites+' roztočů (uloží se do poznámky)</span></div>' : '') +
       '<div class="drow"><span class="lab">Poznámka</span><input type="text" data-dfield="note" data-i="'+i+'" value="'+esc(r.note)+'" placeholder="–"></div>' +
     '</div>';
   });
@@ -1317,14 +1583,17 @@ function saveDict(){
     if(!r.include || !r.hive) return;
     const h = hiveById(r.hive); if(!h) return;
     let any = false;
-    if(r.health || r.strength || r.frames || r.queenSeen || r.eggsSeen || r.problems.length || r.note){
-      h.records.push({id:uid(), t, type:"prohlidka", date, note:r.note || "", health:r.health, strength:r.strength, frames:r.frames,
+    const mitesNote = (r.mites != null && !r.drug) ? "spad " + r.mites + " roztočů" : "";
+    const fullNote = [r.note || "", mitesNote].filter(Boolean).join(", ");
+    if(r.health || r.strength || r.frames || r.queenSeen || r.eggsSeen || r.problems.length || fullNote){
+      h.records.push({id:uid(), t, type:"prohlidka", date, note:fullNote, health:r.health, strength:r.strength, frames:r.frames,
         queenSeen:r.queenSeen, eggsSeen:r.eggsSeen, problems:(r.health && r.health !== "zdrave") ? r.problems.slice() : []});
       any = true;
     }
     if(r.kg > 0){ h.records.push({id:uid(), t, type:"krmeni", date, note:"", kg:Math.round(r.kg * 10) / 10, feed:r.feed || DB.settings.lastFeed || "roztok"}); any = true; }
     if(r.drug){ h.records.push({id:uid(), t, type:"leceni", date, note:"", drug:r.drug, batch:"", mites:r.mites == null ? "" : r.mites}); any = true; }
-    if(r.qyear){ h.records.push({id:uid(), t, type:"matka", date, note:"", year:r.qyear, marked:null}); any = true; }
+    if(r.qyear){ h.records.push({id:uid(), t, type:"matka", date, note:"", year:r.qyear, marked:r.marked || null}); any = true; }
+    if(r.honey > 0){ h.records.push({id:uid(), t, type:"med", date, note:"", kg:Math.round(r.honey * 10) / 10}); any = true; }
     if(any) n++;
   });
   if(!n){ toast("Není co uložit"); return; }
@@ -1784,7 +2053,7 @@ document.addEventListener("input", e => {
   if(e.target.id === "f-dict"){ DICT.text = e.target.value; try{ localStorage.setItem(DICT_KEY, DICT.text); }catch(err){} }
   if(e.target.dataset && e.target.dataset.dfield && DICT.results){
     const r = DICT.results[+e.target.dataset.i], f = e.target.dataset.dfield, v = e.target.value;
-    if(r){ if(f === "frames"){ const n = parseInt(v, 10); r.frames = n > 0 ? n : null; } else if(f === "kg"){ const n = num(v); r.kg = n > 0 ? n : null; } else r[f] = v.trim(); }
+    if(r){ if(f === "frames"){ const n = parseInt(v, 10); r.frames = n > 0 ? n : null; } else if(f === "kg" || f === "honey"){ const n = num(v); r[f] = n > 0 ? n : null; } else r[f] = v.trim(); }
   }
   const bind = e.target.dataset && e.target.dataset.bind;
   if(bind){
