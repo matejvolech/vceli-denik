@@ -256,6 +256,10 @@ ul.plain li{display:flex; justify-content:space-between; align-items:center; gap
 .tile[aria-pressed="true"]::after{content:"✓"; position:absolute; top:-.5rem; right:-.5rem; width:1.35rem; height:1.35rem; border-radius:50%; background:var(--ink); color:#fff; font-family:var(--font); font-size:.75rem; display:grid; place-items:center; border:2px solid var(--bg)}
 
 /* ---------- report ---------- */
+.reminder{background:var(--honey-tint); border-radius:16px; padding:1rem 1.1rem; margin:0 0 1rem; box-shadow:inset 0 0 0 1.5px rgba(242,169,22,.55)}
+.reminder .r-head{display:flex; align-items:center; gap:.5rem; font-weight:700; font-size:1.02rem}
+.reminder p{margin:.45rem 0 .9rem; font-size:.95rem}
+.reminder .btn{min-height:2.9rem}
 .report-card{margin-bottom:0}
 .report-card .t{display:flex; align-items:center; gap:.5rem}
 .report-card.due{box-shadow:inset 0 0 0 2px var(--honey), var(--shadow)}
@@ -1016,6 +1020,14 @@ function viewOverview(){
   const target = DB.settings.feedTarget || 0;
   const fl = hs.map(h => [h, flags(h)]);
   let html = '<h1>Přehled</h1>';
+  if(reportDue() && !reportDone()){
+    const n = new Date(), deadline = new Date(Y, 8, 15), left = Math.max(0, Math.round((deadline - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 864e5));
+    const before = n < new Date(Y, 8, 1);
+    html += '<div class="reminder"><div class="r-head">'+ic("doc")+'<span>Hlášení počtu včelstev</span></div>' +
+      '<p>'+(before ? 'Od 1. do 15. září je potřeba odevzdat hlášení počtu včelstev k 1. 9. Aplikace ho připraví za vás.'
+                    : 'Do 15. září odevzdejte hlášení počtu včelstev k 1. 9. ' + (left === 0 ? '<strong>Dnes je poslední den.</strong>' : 'Zbývá <strong>' + left + ' ' + plural(left, "den", "dny", "dní") + '</strong>.'))+'</p>' +
+      '<div class="row"><button class="btn honey" data-act="go" data-href="#/hlaseni">Připravit hlášení</button><button class="btn" data-act="report-done">Splněno</button></div></div>';
+  }
 
   /* počty */
   const retY = retiredHives().filter(h => (h.retired.date || "").slice(0,4) === String(ovYear));
@@ -1091,16 +1103,21 @@ function viewOverview(){
         '<li><button class="linkish" data-act="go" data-href="#/v/'+x[0].id+'">č. '+esc(x[0].number)+'</button><strong>'+kg(x[1])+' kg</strong></li>').join("") + '</ul>' : '') + '</div>';
   }
   {
-    const now = new Date(), m = now.getMonth(), dd = now.getDate();
-    const due = (m === 7 && dd >= 15) || (m === 8 && dd <= 15);
+    const done = reportDone(), due = reportDue() && !done;
     html += '<h2>Hlášení</h2><div class="card report-card'+(due ? ' due' : '')+'"><div class="t">'+ic("doc")+' Hlášení počtu včelstev k 1. 9.</div>' +
-      '<p class="muted" style="margin:0">'+(due ? 'Do 15. září je potřeba odevzdat hlášení pro ČMSCH. Aplikace ho vyplní za vás.' : 'Roční hlášení pro ČMSCH vyplní aplikace za vás podle vašich úlů.')+'</p>' +
+      '<p class="muted" style="margin:0">'+(done ? '<span style="color:var(--ok);font-weight:600">✓ Hlášení za rok '+Y+' máte odevzdané.</span> <button class="linkish" data-act="report-undo" style="min-height:0;font-weight:500;color:var(--ink-soft)">Zrušit</button>'
+        : due ? 'Do 15. září je potřeba odevzdat hlášení pro ČMSCH. Aplikace ho vyplní za vás.' : 'Roční hlášení pro ČMSCH vyplní aplikace za vás podle vašich úlů.')+'</p>' +
       '<button class="btn '+(due ? 'honey' : '')+'" data-act="go" data-href="#/hlaseni">Připravit hlášení</button></div>';
   }
   return {tab:"prehled", body:html};
 }
 
 /* ---------- hlášení k 1. 9. ---------- */
+function reportDue(){
+  const n = new Date(), m = n.getMonth(), d = n.getDate();
+  return m === 8 && d <= 15;   // jen 1.–15. září: hlášení je ke stavu 1. 9. a online jde podat až od 1. 9.
+}
+function reportDone(){ return DB.settings.reportDoneYear === Y; }
 // výchozí je nejbližší termín: do 15. září letošní hlášení, potom už to příští
 let hlYear = (() => { const n = new Date(); return (n.getMonth() > 8 || (n.getMonth() === 8 && n.getDate() > 15)) ? Y + 1 : Y; })();
 function existedAt(h, date){
@@ -1495,6 +1512,8 @@ document.addEventListener("click", e => {
   if(a === "export"){ doExport(); return; }
   if(a === "hlyear"){ hlYear = Math.min(Y + 1, hlYear + (+b.dataset.delta)); render(); return; }
   if(a === "report-pdf"){ doReportPdf(); return; }
+  if(a === "report-done"){ DB.settings.reportDoneYear = Y; persist(); render(); toast("Hlášení splněno ✓"); return; }
+  if(a === "report-undo"){ delete DB.settings.reportDoneYear; persist(); rerenderKeepScroll(); return; }
   if(a === "submitmode"){ ownerMigrate().submitMode = b.dataset.value; persist(); render(); window.scrollTo(0,0); return; }
   if(a === "emailrep"){ ownerMigrate().emailReport = b.dataset.value; persist(); document.querySelectorAll('[data-act="emailrep"]').forEach(x => x.setAttribute("aria-pressed", String(x === b))); return; }
   if(a === "ptype"){

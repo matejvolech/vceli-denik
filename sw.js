@@ -1,5 +1,5 @@
 // Včelí deník – offline provoz. Při změně aplikace zvyšte číslo verze.
-const CACHE = "vceli-denik-v11";
+const CACHE = "vceli-denik-v13";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
