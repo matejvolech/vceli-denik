@@ -267,6 +267,7 @@ ul.plain li{display:flex; justify-content:space-between; align-items:center; gap
 textarea.dict{min-height:38vh; font-size:1.05rem; line-height:1.5}
 .dict-card{background:var(--surface); border-radius:16px; box-shadow:var(--shadow); padding:.9rem 1rem .4rem; margin-bottom:.9rem}
 .dict-card.off{opacity:.55}
+.dict-src{margin:-.2rem 0 .6rem; color:var(--ink-soft); font-size:.88rem; font-style:italic}
 .dict-head{display:grid; grid-template-columns:3.3rem 1fr auto; gap:.8rem; align-items:center; margin-bottom:.6rem}
 .drow{display:grid; grid-template-columns:5.4rem 1fr; gap:.6rem; align-items:center; padding:.5rem 0; border-top:1px solid var(--line)}
 .drow .lab{font-size:.85rem; color:var(--ink-soft)}
@@ -727,7 +728,7 @@ function viewList(){
     (attention ? ', ' + (big ? '<button data-act="lfilter" data-value="pozor">'+attention+' '+plural(attention,"potřebuje","potřebují","potřebuje")+' pozornost</button>'
                              : attention+' '+plural(attention,"potřebuje","potřebují","potřebuje")+' pozornost') : '') + '</div>' +
     (all.length >= 2 ? '<button class="btn soft" data-act="options">'+ic("sliders")+'Možnosti</button>' : '') + '</div>';
-  html += '<button class="dict-cta" data-act="go" data-href="#/diktovat"><span class="ico">'+ic("mic")+'</span><span><strong>Mluvená prohlídka</strong><br><span class="muted">Nadiktujte prohlídku všech úlů, aplikace ji zapíše sama.</span></span><span class="chev">›</span></button>';
+  html += '<button class="dict-cta" data-act="dict-new"><span class="ico">'+ic("mic")+'</span><span><strong>Mluvená prohlídka</strong><br><span class="muted">Nadiktujte prohlídku všech úlů, aplikace ji zapíše sama.</span></span><span class="chev">›</span></button>';
   if(big) html += '<div class="search">'+ic("search")+'<input id="q" type="search" inputmode="numeric" enterkeyhint="go" autocomplete="off" placeholder="Najít úl podle čísla" aria-label="Najít úl podle čísla" value="'+esc(listQuery)+'"><button class="clear" data-act="clear-q" aria-label="Smazat hledání">✕</button></div>';
   if(listFilter !== "vse" || listApiary !== "__all"){
     html += '<div class="filter-on"><span>Jen '+[listApiary !== "__all" ? apiaryName(listApiary) : "", listFilter !== "vse" ? FILTERS[listFilter].toLowerCase() : ""].filter(Boolean).join(", ")+'</span><button class="link-btn" data-act="clear-filter">Zobrazit vše</button></div>';
@@ -1220,16 +1221,18 @@ const ORD = {prvn:1, druh:2, tret:3, ctvrt:4, pat:5, sest:6, sedm:7, osm:8, deva
 const KA = {jednick:1, dvojk:2, trojk:3, ctyrk:4, petk:5, sestk:6, sedmick:7, osmick:8, devitk:9, desitk:10, jedenactk:11, dvanactk:12, trinactk:13, ctrnactk:14, patnactk:15, sestnactk:16, sedmnactk:17, osmnactk:18, devatenactk:19, dvacitk:20};
 const KA_ALL = {}; Object.keys(KA).forEach(k => { KA_ALL[k] = KA[k]; KA_ALL[k.slice(0, -1) + "c"] = KA[k]; }); // dvanáctce
 
-const RE_ANCHOR = new RegExp("\\b(?:u\\s+|na\\s+|v\\s+|k\\s+)?(?:ul|ulu|ule|ulem|uly|vcelstvo|vcelstva|vcelstvu|vcelstvem|cislo|c\\.)\\s*(?:c\\.|cislo|cis\\.)?\\s*(" + NUM_PART + ")\\b", "g");
+const RE_ANCHOR = new RegExp("\\b(?:u\\s+|na\\s+|v\\s+|k\\s+)?(?:ul|ulu|ule|ulem|uly|hul|hulu|ulek|vcelstvo|vcelstva|vcelstvu|vcelstvem|rodina|rodinu|cislo|c\\.)\\s*(?:c\\.|cislo|cis\\.)?\\s*(" + NUM_PART + ")\\b", "g");
 const RE_ORD = new RegExp("\\b(" + byLen(ORD) + ")(?:i|y|a|e|eho|em|emu|im|imu)\\s+(?:ul|ulu|ule|ulem|vcelstv\\w*)\\b", "g");
 const RE_NUMUL = /\b(\d+)\.?\s*(?:ul|ulu|vcelstvo|vcelstvu)\b/g;
+const RE_ORD2 = new RegExp("\\b(?:u|na|k|ve|v)\\s+(" + byLen(ORD) + ")(?:eho|emu|em|ym|e)\\b", "g");
 const RE_KA = new RegExp("\\b(" + byLen(KA_ALL) + ")(?:a|u|y|ou|e)\\b", "g");
 const RE_NEXT = /\b(?:dalsi|nasledujici)\s+(?:ul\w*|vcelstv\w*)\b|(?:^|[.!?\n]\s*)(?:dalsi|nasledujici)(?=\s*[.,:!?\n]|\s*$)/g;
 
 const POS = /^(vidim|vidime|videl|videla|videli|videt|viden\w*|vidi|nasel|nasla|nasli|nalez\w*|spatr\w*|zahled\w*|je|jsou|ano|mam|ma|maji|bezi|behala|behal|beha|klade|kladla|zaklada|zakladeno|zakladene|poradku|ok|zije|pritomn\w*|tady|vidno|videna|videno|potkal|nachazim)$/;
 const NEG = /^(nevidim|nevidime|nevidel\w*|neviden\w*|nevidi|nenasel\w*|nenasla|nenalez\w*|nespatr\w*|nezahled\w*|neni|nejsou|nebyl\w*|nema|nemam|nemaji|chybi|chybel\w*|ne|ani|bez|zadn\w*|zadna|zadne|nic|neklade|nezaklada|nezakladeno|nepritomn\w*|nikde)$/;
-const QUEEN = /^(matk\w*|matce|kralovn\w*)$/;
-const EGGS = /^(vajic\w*|vajick\w*|zakladeni|zakladenim)$/;
+const QUEEN = /^(matk\w*|matce|matick\w*|maticc\w*|kralovn\w*)$/;
+const EGGS = /^(vajic\w*|vajick\w*|vajec|vejce|vejci|vajicko|zakladeni|zakladenim)$/;
+const Q_DESCR = /^(nov\w*|letosn\w*|mlad\w*|lonsk\w*|predlonsk\w*|star\w*|vymen\w*|vymena|chovn\w*|oplozen\w*|neoplozen\w*|znacen\w*|oznacen\w*|neznacen\w*|neoznacen\w*|rocnik\w*|kupen\w*|koupil\w*|pridal\w*|pridan\w*|zaved\w*|izolov\w*|klec\w*|klicce|kontrol\w*|zkontrol\w*|hledat|najit|pristi|20\d\d)$/;
 
 function polarityAround(tokens, idx){
   for(let d = 1; d <= 3; d++){
@@ -1246,7 +1249,7 @@ function polarityAround(tokens, idx){
 const DICT_DRUGS = [
   [/varidol/, "Varidol"], [/gabon/, "Gabon PF 90"], [/formidol/, "Formidol"], [/\bm\s*-?\s*1\s*-?\s*aer|\bm1\b|\baerosol\w*/, "M-1 AER"],
   [/oxuvar/, "Oxuvar"], [/apiguard/, "Apiguard"], [/th?ymovar/, "Thymovar"], [/apivar/, "Apivar"], [/bioxal/, "Api-Bioxal"],
-  [/stavelov|oxalov/, "Kyselina šťavelová"], [/mravenc/, "Kyselina mravenčí"]
+  [/stavelov|oxalov/, "Kyselina šťavelová"], [/mravenc/, "Kyselina mravenčí"], [/\bkyselin\w*/, "Kyselina"]
 ];
 const FILLER = /^(tak|tak dobre|dobre|dobry|hotovo|konec|to je vse|to je vsechno|a|no|jo|takze|jeste|potom|pak|ted)$/;
 
@@ -1259,24 +1262,25 @@ function parseClause(raw, c, out, ctx){
   // --- matka a vajíčka ---
   if(/\bosirel\w*|\bbezmatec\w*|\bbez matky\b/.test(c)){ out.queenSeen = "ne"; if(!out.eggsSeen) out.eggsSeen = "ne"; ctx.notes.push("osiřelé"); hit = true; }
   tokens.forEach((t, i) => {
+    const descr = [tokens[i - 2], tokens[i - 1], tokens[i + 1], tokens[i + 2]].some(x => x && Q_DESCR.test(x));
     if(QUEEN.test(t)){
-      if(i > 0 && /^(nov\w*|letosn\w*|mlad\w*|lonsk\w*|predlonsk\w*|stara|stary)$/.test(tokens[i - 1]) && !polarityAround(tokens, i)) return;
-      const p = polarityAround(tokens, i) || (tokens.length === 1 ? "ano" : null);
+      const p = polarityAround(tokens, i) || (descr ? null : "ano");
       if(p){ out.queenSeen = p; hit = true; }
     }
     if(EGGS.test(t)){
-      const p = polarityAround(tokens, i) || (tokens.length === 1 ? "ano" : null);
-      if(p){ out.eggsSeen = p; hit = true; }
+      const p = polarityAround(tokens, i) || "ano";
+      out.eggsSeen = p; hit = true;
     }
   });
   if(/\bnezaklad\w*/.test(c)){ out.eggsSeen = "ne"; hit = true; }
   else if(/\b(zaklada|zakladeno|zakladene|zakladla)\b/.test(c) && !hasEggs){ out.eggsSeen = /\b(neni|ne)\s+zaklad/.test(c) ? "ne" : "ano"; hit = true; }
-  if(/\b(otevren\w*|mlad\w*|cerstv\w*)\s+plod\w*/.test(c)){ out.eggsSeen = "ano"; hit = true; }
-  if(/\b(bez|zadn\w*)\s+plod\w*|\bplod\w*\s+(neni|zadny|chybi)\b|\bneni\s+(tam\s+)?(zadny\s+)?plod/.test(c)){ out.eggsSeen = "ne"; hit = true; }
+  const broodNeg = /\b(bez|zadn\w*)\s+plod\w*|\bplod\w*\s+(neni|zadny|chybi|ne)\b|\bneni\s+(tam\s+)?(zadny\s+)?plod|\bnevidim\s+(zadny\s+)?plod/.test(c);
+  if(broodNeg){ if(!hasEggs) out.eggsSeen = "ne"; hit = true; }
+  else if(/\bplod\w*/.test(c) && !/zavickovan\w*/.test(c)){ if(!hasEggs && !out.eggsSeen) out.eggsSeen = "ano"; hit = true; }
 
   // ročník a značení matky
   let qy = null;
-  if(/\b(nov\w*|letosn\w*|mlad\w*)\s+matk|\bmatk\w*\s+(?:je\s+)?(nov\w*|letosn\w*|mlad\w*)\b|\b(vymen\w*|pridal\w*|pridan\w*|zaved\w*|dal\w*\s+novou)\s+(?:\w+\s+)?matk/.test(c)) qy = ctx.Y;
+  if(/\b(nov\w*|letosn\w*|mlad\w*)\s+matk|\bmatk\w*\s+(?:je\s+)?(nov\w*|letosn\w*|mlad\w*)\b|\b(vymenil\w*|pridal\w*|pridan\w*|zavedl\w*|zaveden\w*|dal\w*\s+novou)\s+(?:\w+\s+)?matk/.test(c) && !/\b(pristi|zitra|pozdeji|planuj\w*|musim|potreba|chci)\b/.test(c)) qy = ctx.Y;
   if(/\blonsk\w*\s+matk|\bmatk\w*\s+(?:je\s+)?lonsk/.test(c)) qy = ctx.Y - 1;
   if(/\bpredlonsk\w*\s+matk|\bmatk\w*\s+(?:je\s+)?predlonsk/.test(c)) qy = ctx.Y - 2;
   const my = c.match(/\bmatk\w*\s+(?:je\s+)?(?:z\s+)?(?:roku\s+|rocnik\w*\s+|rocniku\s+)?(20\d\d)\b|\b(20\d\d)\s+matk/);
@@ -1303,7 +1307,7 @@ function parseClause(raw, c, out, ctx){
   else if(/\bnemocn\w*|\bnemoc\b|\bnemoci\b|\bnakazen\w*|\bnakaz\w*|\bchorob\w*/.test(c)) health = /\b(asi|mozna|snad|nejspis|podezr\w*)\b/.test(c) ? "podezreni" : "nemocne";
   else if(/\bpodezr\w*|\bpochybn\w*|\bnejist\w*|\bdivn\w*\s+plod|\bnecim\s+trpi/.test(c)) health = "podezreni";
   else if(/\bneni\s+zdrav/.test(c)) health = "podezreni";
-  else if(/\bzdrav(e|y|a|i|icko)\b|\bbez problemu\b|\bvse ok\b|\bvsechno ok\b|\bje ok\b|\bvypada dobre\b|\bvse v poradku\b|\bvsechno v poradku\b/.test(c) || (/\bv poradku\b/.test(c) && !hasQueen && !hasEggs)) health = "zdrave";
+  else if(/\bzdrav(e|y|a|i|icko)\b|\bbez problemu\b|\bvse ok\b|\bvsechno ok\b|\bje ok\b|\bvypada dobre\b|\bvse v poradku\b|\bvsechno v poradku\b/.test(c) || /\bv pohode\b|\bvypada zdrav\w*/.test(c) || (/\bv poradku\b/.test(c) && !hasQueen && !hasEggs)) health = "zdrave";
   if(health){
     const rank = {zdrave:0, podezreni:1, nemocne:2};
     if(!out.health || rank[health] > rank[out.health]) out.health = health;
@@ -1319,8 +1323,8 @@ function parseClause(raw, c, out, ctx){
   if(st){ out.strength = st; hit = true; }
 
   // --- rámky ---
-  const fr = c.match(/\b(\d+)\s*(?:az\s*\d+\s*)?(?:obsazen\w*\s*|obsednut\w*\s*|pln\w*\s*|plne\s*)?(?:ramk\w*|ramc\w*|ramek|ramu|ramy|plast\w*|ulic\w*|ulick\w*)/) ||
-             c.match(/\b(?:ramk\w*|ramc\w*|plast\w*|ulic\w*|obsed\w*|obsazen\w*|obsaz\w*)\s*(?:je\s*|jich\s*je\s*|asi\s*|kolem\s*|zhruba\s*|na\s*)?(\d+)\b(?!\s*(?:kg|kil|l\b|litr))/);
+  const fr = c.match(/\b(\d+)\s*(?:az\s*\d+\s*)?(?:obsazen\w*\s*|obsednut\w*\s*|pln\w*\s*|plne\s*)?(?:ramec\w*|ramk\w*|ramc\w*|ramek|ramu|ramy|plast\w*|ulic\w*|ulick\w*)/) ||
+             c.match(/\b(?:ramec\w*|ramk\w*|ramc\w*|plast\w*|ulic\w*|obsed\w*|obsazen\w*|obsaz\w*)\s*(?:je\s*|jich\s*je\s*|asi\s*|kolem\s*|zhruba\s*|na\s*)?(\d+)\b(?!\s*(?:kg|kil|l\b|litr))/);
   const frameAction = /\b(dal|dala|pridal\w*|vlozil\w*|vyndal\w*|odebral\w*|vymenil\w*|vzal\w*|presunul\w*|souse|mezistén|mezisten\w*)\b/.test(c);
   if(fr && !frameAction){ const n = parseInt(fr[1], 10); if(n > 0 && n <= 40){ out.frames = n; hit = true; } }
 
@@ -1330,7 +1334,7 @@ function parseClause(raw, c, out, ctx){
   if(am){ amt = Number(am[1]); unitL = /^l/.test(am[2]); }
   else if(/\b(kilo|kila)\b/.test(c)) amt = 1;
   const honeyCtx = /\bmed\b|\bmedu\b|\bmedem\b|vytoc\w*|vytac\w*|medobran\w*|medny\w*\s+vynos/.test(c);
-  const feedCtx = /krm\w*|test\w*|fondan|apifond|pogac|sirup|roztok|cukr|invert|\bdal\b|\bdala\b|\bdal jsem\b|pridal|nalil|dostal\w*|dokrm|prikrm|nakrm/.test(c);
+  const feedCtx = !honeyCtx || /krm\w*|davk\w*|test\w*|fondan|apifond|pogac|sirup|roztok|cukr|invert|\bdal\b|\bdala\b|\bdal jsem\b|pridal|nalil|dostal\w*|dokrm|prikrm|nakrm/.test(c);
   if(amt && amt > 0 && amt < 100){
     if(honeyCtx && !/krm/.test(c)){ out.honey = (out.honey || 0) + amt; hit = true; }
     else if(feedCtx && !/\bnekrm/.test(c)){
@@ -1368,6 +1372,7 @@ function parseDictation(text, hives, Y){
   RE_ANCHOR.lastIndex = 0; while((m = RE_ANCHOR.exec(N))){ add(m.index, m.index + m[0].length, wordsToNumber(m[1])); }
   RE_ORD.lastIndex = 0; while((m = RE_ORD.exec(N))){ add(m.index, m.index + m[0].length, String(ORD[m[1]])); }
   RE_NUMUL.lastIndex = 0; while((m = RE_NUMUL.exec(N))){ add(m.index, m.index + m[0].length, m[1]); }
+  RE_ORD2.lastIndex = 0; while((m = RE_ORD2.exec(N))){ const n = String(ORD[m[1]]); if(byNum(n)) add(m.index, m.index + m[0].length, n); }
   RE_KA.lastIndex = 0; while((m = RE_KA.exec(N))){ const n = String(KA_ALL[m[1]]); if(byNum(n)) add(m.index, m.index + m[0].length, n); }
   RE_NEXT.lastIndex = 0; while((m = RE_NEXT.exec(N))){ add(m.index, m.index + m[0].length, "__next"); }
   list.forEach(h => {
@@ -1405,7 +1410,7 @@ function parseDictation(text, hives, Y){
     const ctx = {Y, notes:[]};
     const segN = N.slice(sg.s, sg.e), segO = O.slice(sg.s, sg.e);
     // rozdělit na věty a části vět (pozice zůstávají stejné)
-    const sepRe = /[.;!?\n]+|,(?!\d)|\s+-\s+|\s+–\s+|\s+ale\s+|\s+avsak\s+|\s+pak\s+|\s+potom\s+|\s+dale\s+|\s+a\s+jeste\s+|\s+a\s+taky\s+|\s+a\s+take\s+/g;
+    const sepRe = /[.;!?\n]+|,(?!\d)|\s+(?:tecka|carka|nova veta|novy radek|strednik)(?=\s|$)|\s+-\s+|\s+–\s+|\s+ale\s+|\s+avsak\s+|\s+pak\s+|\s+potom\s+|\s+dale\s+|\s+a\s+jeste\s+|\s+a\s+taky\s+|\s+a\s+take\s+/g;
     let last = 0, sm, any = false;
     const pieces = [];
     while((sm = sepRe.exec(segN))){ pieces.push([last, sm.index]); last = sm.index + sm[0].length; }
@@ -1417,6 +1422,7 @@ function parseDictation(text, hives, Y){
     });
     if(out.health === "zdrave" && out.problems.length) out.health = "podezreni";
     if(!out.health && out.problems.length) out.health = "podezreni";
+    out.src = segO.replace(/\s*\b(tečka|čárka|středník|nová věta|nový řádek)\b\s*/gi, ". ").replace(/(\.\s*){2,}/g, ". ").trim().replace(/^[,.:;\-–\s]+/, "").slice(0, 220);
     out.note = ctx.notes.filter((v, i, arr) => arr.indexOf(v) === i).join(", ");
     if(out.note) out.note = out.note.charAt(0).toUpperCase() + out.note.slice(1);
     if(!any && !out.note && sg.num === "?") return;
@@ -1429,6 +1435,7 @@ function parseDictation(text, hives, Y){
       if(out.kg) prev.kg = (prev.kg || 0) + out.kg;
       if(out.honey) prev.honey = (prev.honey || 0) + out.honey;
       out.problems.forEach(p => { if(prev.problems.indexOf(p) < 0) prev.problems.push(p); });
+      if(out.src) prev.src = (prev.src ? prev.src + " … " : "") + out.src;
       if(out.note) prev.note = prev.note ? prev.note + ", " + out.note.charAt(0).toLowerCase() + out.note.slice(1) : out.note;
       return;
     }
@@ -1449,7 +1456,9 @@ let sampleFn = null;
   }catch(e){ sampleFn = null; }
 })();
 const DICT_KEY = KEY + ".dict";
-let DICT = {text:(() => { try{ return localStorage.getItem(DICT_KEY) || ""; }catch(e){ return ""; } })(), date:null, results:null};
+let DICT = {text:"", date:null, results:null};
+try{ localStorage.removeItem(DICT_KEY); }catch(e){}
+function resetDict(){ DICT = {text:"", date:null, results:null}; if(recogOn) toggleRec(); }
 let recog = null, recogOn = false;
 function viewDict(){
   if(!DICT.date) DICT.date = today();
@@ -1465,7 +1474,7 @@ function viewDict(){
     '</div>' +
     '<p class="hint">Rozpoznávání funguje přímo v telefonu, i bez internetu.</p>';
   return {back:"#/", tab:"list", body,
-    footer:'<div class="row"><button class="btn" data-act="back" data-fallback="#/">Zrušit</button><button class="btn primary" data-act="dict-run">Zpracovat</button></div>'};
+    footer:'<div class="row"><button class="btn" data-act="dict-cancel">Zrušit</button><button class="btn primary" data-act="dict-run">Zpracovat</button></div>'};
 }
 function toggleRec(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1479,7 +1488,7 @@ function toggleRec(){
       for(let i = ev.resultIndex; i < ev.results.length; i++){
         if(ev.results[i].isFinal){ ta.value = (ta.value ? ta.value.replace(/\s*$/, "") + " " : "") + ev.results[i][0].transcript.trim(); }
       }
-      DICT.text = ta.value; try{ localStorage.setItem(DICT_KEY, DICT.text); }catch(e){}
+      DICT.text = ta.value;
     };
     recog.onerror = ev => { if(ev.error === "not-allowed" || ev.error === "service-not-allowed"){ recogOn = false; toast("Nahrávání tady nejde. Použijte mikrofon na klávesnici."); const b = document.getElementById("rec-btn"); if(b) b.innerHTML = ic("mic")+"Nahrávat hlasem"; } };
     recog.onend = () => { if(recogOn){ try{ recog.start(); }catch(e){} } };
@@ -1558,6 +1567,7 @@ function viewDictReview(){
       '<div class="dict-head">'+(h ? front(h, "mini") : '<span class="front mini" style="--hive:#D9D6CC;--hive-ink:#555"><span class="num">?</span></span>') +
         '<div><strong>'+(h ? hiveTitle(h) + (h.name ? ' <span class="muted" style="font-weight:500">'+esc(h.name)+'</span>' : '') : 'Úl č. '+esc(r.num))+'</strong></div>' +
         (h ? '<button class="chip sm" data-act="dinc" data-i="'+i+'" aria-pressed="'+r.include+'">'+(r.include ? '✓ Uložit' : 'Neukládat')+'</button>' : '') + '</div>' +
+      (r.src ? '<p class="dict-src">„'+esc(r.src)+'“</p>' : '') +
       (h ? '' : '<div class="note-box bad" style="margin:0 0 .6rem">Úl č. '+esc(r.num)+' v aplikaci nemáte. Napište správné číslo:<input type="text" inputmode="numeric" data-dnum="'+i+'" style="margin-top:.5rem;min-height:2.6rem" placeholder="číslo úlu"></div>') +
       '<div class="drow"><span class="lab">Zdraví</span>'+dChips(i, "health", [["zdrave","Zdravé"],["podezreni","Podezření"],["nemocne","Nemocné"]], r.health)+'</div>' +
       ((r.health && r.health !== "zdrave") ? '<div class="drow"><span class="lab">Co</span><div class="quick">' + Object.keys(PROBLEMS).map(k => '<button class="chip sm" data-act="dmulti" data-i="'+i+'" data-v="'+k+'" aria-pressed="'+(r.problems.indexOf(k) >= 0)+'">'+PROBLEMS[k]+'</button>').join("") + '</div></div>' : '') +
@@ -1598,7 +1608,7 @@ function saveDict(){
   });
   if(!n){ toast("Není co uložit"); return; }
   persist();
-  DICT = {text:"", date:null, results:null}; try{ localStorage.removeItem(DICT_KEY); }catch(e){}
+  resetDict();
   toast("Uloženo: " + hivesN(n)); resetTo("#/");
 }
 
@@ -2019,6 +2029,8 @@ document.addEventListener("click", e => {
   if(a === "sync-share"){ shareCode(); return; }
   if(a === "sync-off"){ disconnectSync(); return; }
   if(a === "dict-rec"){ toggleRec(); return; }
+  if(a === "dict-new"){ resetDict(); go("#/diktovat"); return; }
+  if(a === "dict-cancel"){ resetDict(); resetTo("#/"); return; }
   if(a === "dict-run"){ runDict(); return; }
   if(a === "dict-save"){ saveDict(); return; }
   if(a === "dset" || a === "dmulti" || a === "dinc"){
@@ -2050,7 +2062,7 @@ document.addEventListener("click", e => {
 
 document.addEventListener("input", e => {
   if(e.target.id === "q"){ listQuery = e.target.value; applyListView(); }
-  if(e.target.id === "f-dict"){ DICT.text = e.target.value; try{ localStorage.setItem(DICT_KEY, DICT.text); }catch(err){} }
+  if(e.target.id === "f-dict"){ DICT.text = e.target.value; }
   if(e.target.dataset && e.target.dataset.dfield && DICT.results){
     const r = DICT.results[+e.target.dataset.i], f = e.target.dataset.dfield, v = e.target.value;
     if(r){ if(f === "frames"){ const n = parseInt(v, 10); r.frames = n > 0 ? n : null; } else if(f === "kg" || f === "honey"){ const n = num(v); r[f] = n > 0 ? n : null; } else r[f] = v.trim(); }
