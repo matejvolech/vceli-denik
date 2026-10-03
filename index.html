@@ -774,8 +774,8 @@ function viewDetail(h){
   if(q){
     if(q.year){
       const m = markOf(q.year);
-      queenDd = '<span class="dot" style="background:'+m.hex+'" aria-hidden="true"></span>'+q.year+', '+ageText(q.year) +
-        '<span class="small">Značka '+m.n+'</span>' + markedLine + seenLine +
+      queenDd = '<span class="dot" style="background:'+m.hex+'" title="Značka '+m.n+'" aria-label="Značka '+m.n+'"></span>'+q.year+', '+ageText(q.year) +
+        markedLine + seenLine +
         (Y - q.year >= 3 ? '<span class="small">Starší matka, zvažte výměnu.</span>' : '');
     } else queenDd = 'Rok neznámý' + markedLine + seenLine;
   }
