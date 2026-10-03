@@ -255,6 +255,18 @@ ul.plain li{display:flex; justify-content:space-between; align-items:center; gap
 .tile[aria-pressed="true"]{box-shadow:0 0 0 3px var(--bg), 0 0 0 5.5px var(--ink)}
 .tile[aria-pressed="true"]::after{content:"✓"; position:absolute; top:-.5rem; right:-.5rem; width:1.35rem; height:1.35rem; border-radius:50%; background:var(--ink); color:#fff; font-family:var(--font); font-size:.75rem; display:grid; place-items:center; border:2px solid var(--bg)}
 
+/* ---------- warnings ---------- */
+.warnbadge{position:absolute; right:.55rem; top:.75rem; display:grid; place-items:center; width:1.7rem; height:1.7rem; border-radius:50%; font-style:normal; font-weight:800; font-size:1rem; color:#fff; box-shadow:0 0 0 2.5px rgba(255,255,255,.95)}
+.warnbadge.warn{background:#E39A0B} .warnbadge.bad{background:#D8402F}
+.warns{background:var(--surface); border-radius:16px; box-shadow:var(--shadow); overflow:hidden}
+.warn-item{display:grid; grid-template-columns:1.6rem 1fr auto; gap:.7rem; align-items:center; width:100%; text-align:left; padding:.85rem 1rem; border:0; border-top:1px solid var(--line); background:none; font-weight:600; font-size:.95rem}
+.warn-item:first-child{border-top:0}
+.warn-item:active{background:var(--surface-2)}
+.warn-item b{display:grid; place-items:center; width:1.6rem; height:1.6rem; border-radius:50%; color:#fff; font-size:.85rem}
+.warn-item.warn b{background:var(--warn)} .warn-item.bad b{background:var(--bad)}
+.warn-item.bad{color:var(--bad)}
+.warn-item .go{color:var(--ink-soft); font-weight:500; font-size:.88rem; white-space:nowrap}
+
 /* ---------- welcome ---------- */
 .welcome{text-align:center; padding:1rem .3rem .4rem}
 .welcome .hive-art{width:5.5rem; margin:0 auto 1.2rem}
@@ -432,11 +444,16 @@ const sumKg = (h,y,type) => h.records.filter(r => r.type === type && r.date.slic
 const fedIn = (h,y) => sumKg(h,y,"krmeni");
 const honeyIn = (h,y) => sumKg(h,y,"med");
 const treatsIn = (h,y) => h.records.filter(r => r.type === "leceni" && r.date.slice(0,4) === String(y));
+function queenMissing(r){
+  if(!r) return false;
+  if(!("eggsSeen" in r)) return r.queenSeen === "ne";      // starý záznam: „matka nebo vajíčka“
+  return r.queenSeen === "ne" && r.eggsSeen === "ne";
+}
 function flags(h){
   const s = state(h), fed = fedIn(h, Y), t = DB.settings.feedTarget || 0;
   return {
     s, fed,
-    pozor: !!((s.health && s.health.health !== "zdrave") || (s.lastInsp && s.lastInsp.queenSeen === "ne")),
+    pozor: !!((s.health && s.health.health !== "zdrave") || queenMissing(s.lastInsp)),
     slabe: !!(s.strength && s.strength.strength === "slabe"),
     nelecene: treatsIn(h, Y).length === 0,
     nedokrmene: t > 0 && fed < t
@@ -469,8 +486,15 @@ function summary(r){
     if(r.strength) p.push("síla: " + STRENGTH[r.strength].t.toLowerCase());
     if(r.frames) p.push(frames(r.frames));
     if(r.problems && r.problems.length) p.push(r.problems.map(x => PROBLEMS[x] || x).join(", "));
-    if(r.queenSeen === "ano") p.push("matka nebo vajíčka viděny");
-    if(r.queenSeen === "ne") p.push("matka ani vajíčka neviděny");
+    if(!("eggsSeen" in r)){
+      if(r.queenSeen === "ano") p.push("matka nebo vajíčka viděny");
+      if(r.queenSeen === "ne") p.push("matka ani vajíčka neviděny");
+    } else {
+      if(r.queenSeen === "ano") p.push("matka viděna");
+      if(r.queenSeen === "ne") p.push("matka neviděna");
+      if(r.eggsSeen === "ano") p.push("vajíčka viděna");
+      if(r.eggsSeen === "ne") p.push("vajíčka neviděna");
+    }
     return p.join(", ") || "Prohlídka";
   }
   if(r.type === "krmeni") return kg(r.kg) + " kg" + (r.feed ? ", " + (FEEDS[r.feed] || r.feed).toLowerCase() : "");
@@ -552,25 +576,28 @@ function dataAttrs(h, f){
   const fl = ["pozor","slabe","nelecene","nedokrmene"].filter(k => f[k]).join(" ");
   return 'data-num="'+esc(h.number)+'" data-name="'+esc(h.name || "")+'" data-flags="'+fl+'"';
 }
+function warnings(h, f){
+  const s = f.s, autumn = new Date().getMonth() >= 7, w = [];
+  if(s.health && s.health.health === "nemocne") w.push({t:"Nemocné", l:"bad", to:"prohlidka"});
+  else if(s.health && s.health.health === "podezreni") w.push({t:"Podezření na nemoc", l:"warn", to:"prohlidka"});
+  if(queenMissing(s.lastInsp)) w.push({t:"Při prohlídce nebyla vidět matka ani vajíčka", l:"warn", to:"prohlidka"});
+  if(f.nedokrmene && autumn) w.push({t:"Chybí "+kg((DB.settings.feedTarget || 0) - f.fed)+" kg krmení", l:"warn", to:"krmeni"});
+  if(f.nelecene && autumn) w.push({t:"Letos zatím neléčeno", l:"warn", to:"leceni"});
+  if(s.queen && s.queen.year && Y - s.queen.year >= 3) w.push({t:"Stará matka ("+ageText(s.queen.year)+")", l:"warn", to:"matka"});
+  if(f.slabe) w.push({t:"Slabé včelstvo", l:"warn", to:"prohlidka"});
+  return w;
+}
 function status(h, f){
-  const s = f.s, autumn = new Date().getMonth() >= 7;
-  const items = []; let level = "ok";
-  const add = (t, l) => { items.push(t); if(l === "bad" || level === "ok") level = l; };
-  if(s.health && s.health.health === "nemocne") add("Nemocné", "bad");
-  else if(s.health && s.health.health === "podezreni") add("Podezření na nemoc", "warn");
-  if(s.lastInsp && s.lastInsp.queenSeen === "ne") add("Neviděna matka", "warn");
-  if(f.nedokrmene && autumn) add("Chybí "+kg((DB.settings.feedTarget || 0) - f.fed)+" kg krmení", "warn");
-  if(f.nelecene && autumn) add("Letos neléčeno", "warn");
-  if(s.queen && s.queen.year && Y - s.queen.year >= 3) add("Stará matka", "warn");
-  if(f.slabe) add("Slabé včelstvo", "warn");
-  if(!items.length) return h.records.length ? {level:"ok", text:"V pořádku", more:0} : {level:"none", text:"Bez záznamů", more:0};
-  return {level, text:items[0], more:items.length - 1};
+  const w = warnings(h, f);
+  if(!w.length) return h.records.length ? {level:"ok", text:"V pořádku", n:0} : {level:"none", text:"Bez záznamů", n:0};
+  const level = w.some(x => x.l === "bad") ? "bad" : "warn";
+  return {level, text: w.length === 1 ? w[0].t : w.length + " upozornění", n:w.length};
 }
 function paint(h, extra){
   const c = colorOf(h.color);
   return '<span class="paint" style="--hive:'+c.hex+';--hive-ink:'+c.ink+'" aria-hidden="true"><span class="n">'+esc(h.number)+'</span>'+(extra || "")+'<span class="slot"></span></span>';
 }
-function stx(st){ return '<span class="stx '+st.level+'">'+esc(st.text)+(st.more ? '<span class="more">+'+st.more+'</span>' : '')+'</span>'; }
+function stx(st){ return '<span class="stx '+st.level+'">'+esc(st.text)+'</span>'; }
 function hiveTile(h, f){
   const st = status(h, f);
   return '<button class="htile" data-act="go" data-href="#/v/'+h.id+'" '+dataAttrs(h,f)+' aria-label="'+hiveTitle(h)+(h.name ? ", "+esc(h.name) : "")+': '+esc(st.text)+'">' +
@@ -726,16 +753,18 @@ function viewDetail(h){
         '<span><span class="d">'+fmtDate(r.date)+', '+(TYPES[r.type]||{t:"záznam"}).t.toLowerCase()+'</span><br><span class="s">'+esc(summary(r))+(r.note?'<br>„'+esc(r.note)+'“':'')+'</span></span></button>').join("") + '</div>'
     : '<p class="muted">Zatím žádné záznamy. Začněte prohlídkou nebo krmením.</p>';
   const R = h.retired;
+  const warns = R ? [] : warnings(h, flags(h));
   return {
     back: R ? "#/vyrazena" : "#/", tab:"list",
     right:'<button class="link-btn" data-act="go" data-href="#/v/'+h.id+'/upravit">Upravit</button>',
     body:
-      '<div class="hero">'+paint(h)+'<div><h1>'+hiveTitle(h)+'</h1>'+
-        ((h.name||h.apiary) ? '<div class="sub">'+esc([h.name, h.apiary].filter(Boolean).join(", "))+'</div>' : '')+
-        (R ? '' : stx(status(h, flags(h))))+'</div></div>' +
+      '<div class="hero">'+paint(h, (!R && warns.length) ? '<i class="warnbadge '+(warns.some(x => x.l === "bad") ? "bad" : "warn")+'" title="Je potřeba něco řešit">!</i>' : '')+'<div><h1>'+hiveTitle(h)+'</h1>'+
+        ((h.name||h.apiary) ? '<div class="sub">'+esc([h.name, h.apiary].filter(Boolean).join(", "))+'</div>' : '')+'</div></div>' +
       (R ? '<div class="note-box" style="margin:0 0 1rem">Vyřazeno '+fmtDate(R.date)+': '+RETIRE[R.reason].toLowerCase()+(R.into ? ' (č. '+esc(R.into)+')' : '')+(R.note ? '<br>„'+esc(R.note)+'“' : '')+'</div>' +
            '<button class="btn" data-act="restore" data-hive="'+h.id+'" style="margin-bottom:1.2rem">Vrátit mezi aktivní včelstva</button>' : '') +
       (R ? '' : actions) +
+      ((!R && warns.length) ? '<h2>Co je potřeba řešit</h2><div class="warns">' + warns.map(x =>
+        '<button class="warn-item '+x.l+'" data-act="go" data-href="#/v/'+h.id+'/'+x.to+'"><b aria-hidden="true">!</b><span>'+esc(x.t)+'</span><span class="go">Zapsat ›</span></button>').join("") + '</div>' : '') +
       '<h2>Stav včelstva</h2>' + facts +
       '<h2>Historie</h2>' + hist
   };
@@ -830,7 +859,7 @@ function viewRecordForm(h, type){
   let body = '<div class="detail-head">'+front(h)+'<div><div class="sub">'+hiveTitle(h)+(h.name?", "+esc(h.name):"")+'</div><h1>'+TYPES[type].e+' '+TYPES[type].t+'</h1></div></div>';
 
   if(type === "prohlidka"){
-    F.health = null; F.strength = null; F.queenSeen = null; F.problems = [];
+    F.health = null; F.strength = null; F.queenSeen = null; F.eggsSeen = null; F.problems = [];
     body += dateField() +
       '<div class="field"><span class="label">Zdravotní stav</span><div class="choices">' +
         choice("health","zdrave",'<span class="sym">✓</span>Zdravé',false,"h-ok") +
@@ -845,9 +874,12 @@ function viewRecordForm(h, type){
       '</div></div>' +
       '<div class="field"><label class="label" for="f-frames">Obsazené rámky <small>(nepovinné)</small></label>' +
         '<div class="stepper"><button data-act="step" data-target="f-frames" data-delta="-1" aria-label="Ubrat">−</button><input id="f-frames" type="text" inputmode="numeric" placeholder="–"><button data-act="step" data-target="f-frames" data-delta="1" aria-label="Přidat">+</button></div></div>' +
-      '<div class="field"><span class="label">Viděli jste matku nebo vajíčka? <small>(nepovinné)</small></span><div class="choices cols-2">' +
-        choice("queenSeen","ano","Ano") + choice("queenSeen","ne","Ne") +
+      '<div class="field"><span class="label">Viděli jste matku? <small>(nepovinné)</small></span><div class="choices cols-2">' +
+        choice("queenSeen","ano","Ano, viděl") + choice("queenSeen","ne","Ne, neviděl") +
       '</div></div>' +
+      '<div class="field"><span class="label">Viděli jste vajíčka? <small>(nepovinné)</small></span><div class="choices cols-2">' +
+        choice("eggsSeen","ano","Ano, viděl") + choice("eggsSeen","ne","Ne, neviděl") +
+      '</div><p class="hint">Volbu zrušíte dalším ťuknutím.</p></div>' +
       noteField("např. dost zásob, klidné včely") + '<div class="error" id="err-form" hidden></div>';
   }
 
@@ -978,7 +1010,7 @@ function viewOverview(){
   /* pozornost */
   const cats = [
     ["Nemocné nebo podezření na nemoc", fl.filter(x => x[1].s.health && x[1].s.health.health !== "zdrave")],
-    ["Při prohlídce nebyla vidět matka ani vajíčka", fl.filter(x => x[1].s.lastInsp && x[1].s.lastInsp.queenSeen === "ne")],
+    ["Při prohlídce nebyla vidět matka ani vajíčka", fl.filter(x => queenMissing(x[1].s.lastInsp))],
     ["Matka stará 3 roky a víc", fl.filter(x => x[1].s.queen && x[1].s.queen.year && Y - x[1].s.queen.year >= 3)],
     ["Slabá včelstva", fl.filter(x => x[1].slabe)]
   ].filter(c => c[1].length);
@@ -1121,7 +1153,11 @@ document.addEventListener("click", e => {
   if(a === "yes"){ const fn = onYes; closeModal(); if(fn) fn(); return; }
 
   if(a === "choice"){
-    const g = b.dataset.group, v = b.dataset.value;
+    const g = b.dataset.group;
+    let v = b.dataset.value;
+    if(["queenSeen","eggsSeen","marked"].indexOf(g) >= 0 && b.getAttribute("aria-pressed") === "true"){
+      F[g] = null; b.setAttribute("aria-pressed","false"); return;
+    }
     F[g] = v; setPressed(b, g);
     if(g === "health") document.getElementById("problems").hidden = (v === "zdrave");
     if(g === "drug"){ const o = document.getElementById("drug-other"); o.hidden = v !== "__jiny"; if(v === "__jiny") document.getElementById("f-drug").focus(); }
@@ -1283,7 +1319,7 @@ function saveRecord(){
   const r = {id:uid(), t:Date.now(), type:F.type, date:val("f-date") || today(), note:val("f-note")};
   if(F.type === "prohlidka"){
     if(!F.health && !F.strength){ showErr("err-form","Vyberte aspoň zdravotní stav nebo sílu včelstva."); return; }
-    r.health = F.health; r.strength = F.strength; r.queenSeen = F.queenSeen;
+    r.health = F.health; r.strength = F.strength; r.queenSeen = F.queenSeen; r.eggsSeen = F.eggsSeen;
     r.problems = F.health && F.health !== "zdrave" ? F.problems.slice() : [];
     const fr = parseInt(val("f-frames"),10); r.frames = isFinite(fr) && fr > 0 ? fr : null;
   }
@@ -1440,7 +1476,7 @@ function loadDemo(size){
         const x = rnd(), health = x < .05 ? "nemocne" : x < .14 ? "podezreni" : "zdrave";
         const y2 = rnd(), strength = y2 < .14 ? "slabe" : y2 < .55 ? "stredni" : "silne";
         const fr = strength === "slabe" ? ri(3,5) : strength === "stredni" ? ri(6,8) : ri(9,11);
-        h.records.push(R("prohlidka", d(8, ri(8,28)), {health, strength, frames:fr, queenSeen:rnd() < .07 ? "ne" : "ano",
+        h.records.push(R("prohlidka", d(8, ri(8,28)), {health, strength, frames:fr, ...(rnd() < .07 ? {queenSeen:"ne", eggsSeen:"ne"} : {queenSeen:rnd() < .6 ? "ano" : "ne", eggsSeen:"ano"}),
           problems: health === "zdrave" ? [] : [pick(["varroaza","kridla","nosema","vapenaty"])]}));
         h.records.push(R("med", d(6, ri(10,25)), {kg:ri(6,18)}));
         if(rnd() < .8) h.records.push(R("med", d(7, ri(15,28)), {kg:ri(4,14)}));
@@ -1460,22 +1496,22 @@ function loadDemo(size){
     DB.hives = [
       {id:uid(), number:"1", name:"U lípy", apiary:"Zahrada", color:"zluta", retired:null, records:[
         R("matka", d(5,20), {year:Y-1, marked:"ano"}),
-        R("prohlidka", d(7,28), {health:"zdrave", strength:"silne", frames:9, queenSeen:"ano", problems:[]}),
+        R("prohlidka", d(7,28), {health:"zdrave", strength:"silne", frames:9, queenSeen:"ano", eggsSeen:"ano", problems:[]}),
         R("krmeni", d(8,2), {kg:5, feed:"roztok"}), R("krmeni", d(8,16), {kg:5, feed:"roztok"}), R("krmeni", d(9,1), {kg:4, feed:"invert"}),
         R("leceni", d(8,10), {drug:"Formidol", batch:"", mites:42, note:"po vytočení"})
       ]},
       {id:uid(), number:"2", name:"", apiary:"Zahrada", color:"modra", retired:null, records:[
         R("matka", d(6,1), {year:Y-3, marked:"ano"}),
-        R("prohlidka", d(8,20), {health:"podezreni", strength:"stredni", frames:6, queenSeen:"ano", problems:["varroaza","kridla"], note:"pár včel s pokrčenými křídly"}),
+        R("prohlidka", d(8,20), {health:"podezreni", strength:"stredni", frames:6, queenSeen:"ne", eggsSeen:"ano", problems:["varroaza","kridla"], note:"pár včel s pokrčenými křídly"}),
         R("krmeni", d(8,22), {kg:5, feed:"roztok"})
       ]},
       {id:uid(), number:"3", name:"Oddělek", apiary:"Zahrada", color:"zelena", retired:null, records:[
         R("matka", d(6,15), {year:Y, marked:"ne"}),
-        R("prohlidka", d(9,5), {health:"zdrave", strength:"slabe", frames:4, queenSeen:"ne", problems:[]}),
+        R("prohlidka", d(9,5), {health:"zdrave", strength:"slabe", frames:4, queenSeen:"ne", eggsSeen:"ne", problems:[]}),
         R("krmeni", d(9,6), {kg:3, feed:"testo"})
       ]},
       {id:uid(), number:"4", name:"", apiary:"Za lesem", color:"cervena", retired:null, records:[
-        R("prohlidka", d(8,28), {health:"zdrave", strength:"silne", frames:10, queenSeen:null, problems:[]}),
+        R("prohlidka", d(8,28), {health:"zdrave", strength:"silne", frames:10, queenSeen:null, eggsSeen:null, problems:[]}),
         R("krmeni", d(8,28), {kg:10, feed:"invert"}), R("krmeni", d(9,14), {kg:6, feed:"invert"}),
         R("leceni", d(9,15), {drug:"Gabon PF 90", batch:"", mites:""})
       ]}
