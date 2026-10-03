@@ -1164,7 +1164,7 @@ function viewReport(){
   }
   body += '<div class="mode-row"><span>Odevzdávám <strong>na papíře</strong></span><button class="link-btn" data-act="submitmode" data-value="online">Raději online</button></div>';
   body += '<h2>1. Údaje o chovateli</h2><p class="hint" style="margin:-.4rem 0 1rem">Vyplníte jednou, příští rok už tu budou. Zůstávají jen v tomto telefonu.</p>' +
-    rField("Registrační číslo chovatele", "owner.reg", o.reg, {mode:"numeric", hint:"Najdete ho v přehledu stanovišť od ČMSCH nebo v loňském hlášení."}) +
+    rField("Registrační číslo chovatele", "owner.reg", o.reg, {mode:"numeric", hint:"Najdete ho v přehledu stanovišť od ČMSCH nebo v loňském hlášení. Nový včelař, který číslo ještě nemá, pole nechá prázdné."}) +
     rField("Jméno", "owner.firstName", o.firstName, {ac:"given-name"}) +
     rField("Příjmení", "owner.lastName", o.lastName, {ac:"family-name"}) +
     rField("Rodné číslo nebo IČO", "owner.rc", o.rc, {mode:"numeric", optional:true, ph:"např. 851231/1234"}) +
@@ -1193,7 +1193,8 @@ function viewReport(){
     '</div>';
   });
   if(apis.length > 10) body += '<div class="note-box">Tiskopis má místo pro 10 stanovišť. Další se vyplní na druhý list.</div>';
-  body += '<div class="card" style="margin-top:1.4rem"><p style="margin:0">Vyplněný tiskopis vytiskněte, podepište a pošlete na ČMSCH, a.s., Benešovská 123, 252 09 Hradištko, nebo ho odevzdejte ve své základní organizaci.</p></div>';
+  body += '<div class="card" style="margin-top:1.4rem"><p style="margin:0">Vyplněný tiskopis vytiskněte, podepište a pošlete poštou na ČMSCH, a.s., Benešovská 123, 252 09 Hradištko, nebo ho odevzdejte ve své základní organizaci. E-mailem ho registrovaný včelař poslat nemůže.</p>' +
+    (o.reg ? '' : '<p style="margin:.8rem 0 0"><strong>Nový včelař bez registračního čísla:</strong> tiskopis slouží zároveň jako registrace. Podepsaný a naskenovaný ho můžete poslat i e-mailem na vcely@cmsch.cz.</p>') + '</div>';
   return {back:"#/prehled", tab:"prehled", body,
     footer:'<button class="btn primary" data-act="report-pdf">'+ic("doc")+'Vytvořit vyplněný tiskopis</button>',
     after(){ ensurePdfLib(); }
@@ -1276,7 +1277,7 @@ async function buildReportPdf(year, o, rows){
 }
 async function doReportPdf(){
   const o = ownerMigrate();
-  const need = [["reg","registrační číslo chovatele"],["firstName","jméno"],["lastName","příjmení"],["city","obec"]].find(x => !String(o[x[0]] || "").trim());
+  const need = [["firstName","jméno"],["lastName","příjmení"],["city","obec"]].find(x => !String(o[x[0]] || "").trim());
   if(need){
     toast("Vyplňte " + need[1]);
     const el = document.querySelector('[data-bind="owner.'+need[0]+'"]'); if(el){ el.scrollIntoView({block:"center"}); el.focus(); }
