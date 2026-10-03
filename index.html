@@ -1096,10 +1096,10 @@ function viewOverview(){
 }
 
 /* ---------- hlášení k 1. 9. ---------- */
-let hlYear = new Date().getMonth() >= 7 ? Y : Y - 1;
+// výchozí je nejbližší termín: do 15. září letošní hlášení, potom už to příští
+let hlYear = (() => { const n = new Date(); return (n.getMonth() > 8 || (n.getMonth() === 8 && n.getDate() > 15)) ? Y + 1 : Y; })();
 function existedAt(h, date){
   if(h.retired && h.retired.date && h.retired.date < date) return false;
-  if(h.created && new Date(h.created).toISOString().slice(0,10) > date) return false;
   return true;
 }
 function rField(label, bind, value, opts){
@@ -1126,11 +1126,12 @@ function viewReport(){
   F = {kind:"report", apis};
   const o = ownerMigrate(), meta = DB.apiaryMeta || {};
   let body = '<h1>Hlášení k 1. 9.</h1><p class="muted" style="margin-top:-.4rem">Úřední tiskopis ČMSCH „Hlášení počtu včelstev a umístění stanovišť“. Aplikace ho vyplní za vás. Odevzdává se každý rok do 15. září.</p>' +
-    '<div class="yearbar"><button data-act="hlyear" data-delta="-1" aria-label="Předchozí rok">‹</button><strong>1. 9. '+hlYear+'</strong><button data-act="hlyear" data-delta="1" aria-label="Další rok"'+(hlYear>=Y?' disabled style="opacity:.35"':'')+'>›</button></div>';
+    '<div class="yearbar"><button data-act="hlyear" data-delta="-1" aria-label="Předchozí rok">‹</button><strong>1. 9. '+hlYear+'</strong><button data-act="hlyear" data-delta="1" aria-label="Další rok"'+(hlYear>=Y+1?' disabled style="opacity:.35"':'')+'>›</button></div>';
   if(!hs.length){
     body += '<div class="card"><p style="margin:0">K 1. 9. '+hlYear+' nemáte v aplikaci žádné včelstvo.</p></div>';
     return {back:"#/prehled", tab:"prehled", body};
   }
+  if(date > today()) body += '<div class="note-box" style="margin:0 0 .9rem">Hlášení k 1. 9. '+hlYear+' je zatím předběžné. Počty se samy upraví podle toho, jak budete úly přidávat nebo vyřazovat. Odevzdává se od 1. do 15. září '+hlYear+'.</div>';
   body += '<div class="card"><div class="stat">'+colonies(hs.length)+'</div><div class="muted">k 1. 9. '+hlYear+(apis.length > 1 ? ' na '+apis.length+' stanovištích' : '')+', podle vašich záznamů</div></div>';
   body += '<h2>1. Údaje o chovateli</h2><p class="hint" style="margin:-.4rem 0 1rem">Vyplníte jednou, příští rok už tu budou. Zůstávají jen v tomto telefonu.</p>' +
     rField("Registrační číslo chovatele", "owner.reg", o.reg, {mode:"numeric", hint:"Najdete ho v přehledu stanovišť od ČMSCH nebo v loňském hlášení."}) +
@@ -1464,7 +1465,7 @@ document.addEventListener("click", e => {
     return;
   }
   if(a === "export"){ doExport(); return; }
-  if(a === "hlyear"){ hlYear = Math.min(Y, hlYear + (+b.dataset.delta)); render(); return; }
+  if(a === "hlyear"){ hlYear = Math.min(Y + 1, hlYear + (+b.dataset.delta)); render(); return; }
   if(a === "report-pdf"){ doReportPdf(); return; }
   if(a === "emailrep"){ ownerMigrate().emailReport = b.dataset.value; persist(); document.querySelectorAll('[data-act="emailrep"]').forEach(x => x.setAttribute("aria-pressed", String(x === b))); return; }
   if(a === "ptype"){
