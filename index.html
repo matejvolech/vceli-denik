@@ -255,6 +255,17 @@ ul.plain li{display:flex; justify-content:space-between; align-items:center; gap
 .tile[aria-pressed="true"]{box-shadow:0 0 0 3px var(--bg), 0 0 0 5.5px var(--ink)}
 .tile[aria-pressed="true"]::after{content:"✓"; position:absolute; top:-.5rem; right:-.5rem; width:1.35rem; height:1.35rem; border-radius:50%; background:var(--ink); color:#fff; font-family:var(--font); font-size:.75rem; display:grid; place-items:center; border:2px solid var(--bg)}
 
+/* ---------- folding sections ---------- */
+.fold{margin-top:1.1rem}
+.fold-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; width:100%; text-align:left; padding:1rem 1.1rem; border:0; border-radius:16px; background:var(--surface); box-shadow:var(--shadow)}
+.fold-head:active{background:var(--surface-2)}
+.fold-t{display:block; font-weight:700; font-size:1.05rem}
+.fold-s{display:block; color:var(--ink-soft); font-size:.92rem; margin-top:.15rem}
+.fold-s.warn{color:var(--warn); font-weight:600}
+.fold-c{font-size:1.6rem; line-height:1; color:var(--ink-soft); transition:transform .2s}
+.fold.open .fold-c{transform:rotate(90deg)}
+.fold-body{padding-top:1rem}
+
 /* ---------- report ---------- */
 .reminder{background:var(--honey-tint); border-radius:16px; padding:1rem 1.1rem; margin:0 0 1rem; box-shadow:inset 0 0 0 1.5px rgba(242,169,22,.55)}
 .reminder .r-head{display:flex; align-items:center; gap:.5rem; font-weight:700; font-size:1.02rem}
@@ -431,6 +442,14 @@ function num(v){ const n = parseFloat(String(v).replace(",", ".").replace(/\s/g,
 function plural(n, one, few, many){ n = Math.abs(n); return n === 1 ? one : (n >= 2 && n <= 4 ? few : many); }
 const colonies = n => n + " " + plural(n,"včelstvo","včelstva","včelstev");
 const hivesN = n => n + " " + plural(n,"úl","úly","úlů");
+function daysAgo(date){
+  const [yy, mm, dd] = date.split("-").map(Number);
+  const now = new Date(), a = new Date(yy, mm - 1, dd), b = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const n = Math.round((b - a) / 864e5);
+  if(n <= 0) return "dnes";
+  if(n === 1) return "včera";
+  return "před " + n + " dny";
+}
 function ageText(y){ const a = Y - y; if(a <= 0) return "letošní"; return a + " " + plural(a,"rok","roky","let"); }
 function frames(n){ return n + " obsazen" + plural(n,"ý rámek","é rámky","ých rámků"); }
 const hiveById = id => DB.hives.find(h => h.id === id);
@@ -748,14 +767,17 @@ function viewDetail(h){
   const fed = fedIn(h, Y), target = DB.settings.feedTarget || 0;
   const pct = target ? Math.min(100, Math.round(fed / target * 100)) : 0;
   const q = s.queen;
-  let queenDd = '<span class="muted">Nezapsána</span>';
+  const lastSeen = s.rs.find(r => r.type === "prohlidka" && ("eggsSeen" in r) && r.queenSeen === "ano");
+  const seenLine = '<span class="small">'+(lastSeen ? 'Naposledy viděna ' + daysAgo(lastSeen.date) : 'Kdy byla viděna: zatím nezapsáno')+'</span>';
+  const markedLine = q && q.marked ? '<span class="small">'+(q.marked === "ano" ? "Matka je označená" : "Matka není označená")+'</span>' : '';
+  let queenDd = '<span class="muted">Nezapsána</span>' + (lastSeen ? seenLine : '');
   if(q){
     if(q.year){
       const m = markOf(q.year);
       queenDd = '<span class="dot" style="background:'+m.hex+'" aria-hidden="true"></span>'+q.year+', '+ageText(q.year) +
-        '<span class="small">Značka '+m.n+(q.marked==="ano"?", matka je označená":q.marked==="ne"?", matka není označená":"")+'</span>' +
+        '<span class="small">Značka '+m.n+'</span>' + markedLine + seenLine +
         (Y - q.year >= 3 ? '<span class="small">Starší matka, zvažte výměnu.</span>' : '');
-    } else queenDd = 'Rok neznámý';
+    } else queenDd = 'Rok neznámý' + markedLine + seenLine;
   }
   const facts =
     '<dl class="facts">' +
@@ -1013,6 +1035,13 @@ function updateSel(){
 }
 
 /* ---------- overview ---------- */
+const ovOpen = {};
+function fold(key, title, sum, warn, body){
+  const open = !!ovOpen[key];
+  return '<div class="fold'+(open ? ' open' : '')+'"><button class="fold-head" data-act="fold" data-key="'+key+'" aria-expanded="'+open+'">' +
+    '<span><span class="fold-t">'+title+'</span><span class="fold-s'+(warn ? ' warn' : '')+'">'+sum+'</span></span><span class="fold-c" aria-hidden="true">›</span></button>' +
+    '<div class="fold-body"'+(open ? '' : ' hidden')+'>'+body+'</div></div>';
+}
 function viewOverview(){
   const hs = active().sort(byNumber);
   if(!hs.length) return {tab:"prehled", body:'<h1>Přehled</h1><p class="muted">Až přidáte včelstva, uvidíte tady krmení a léčení všech úlů pohromadě.</p><button class="btn primary" data-act="go" data-href="#/nove">+ Přidat včelstvo</button>'};
@@ -1058,11 +1087,12 @@ function viewOverview(){
   }
 
   /* krmení */
+  const feedStart = html.length;
   const fedArr = hs.map(h => [h, fedIn(h, ovYear)]);
   const total = fedArr.reduce((s,x) => s + x[1], 0);
   const done = target ? fedArr.filter(x => x[1] >= target).length : 0;
   const missing = target ? fedArr.reduce((s,x) => s + Math.max(0, target - x[1]), 0) : 0;
-  html += '<h2>Krmení na zimu</h2>' +
+  html += '' +
     '<div class="field" style="margin-bottom:1rem"><span class="label">Kolik má dostat jedno včelstvo</span>' +
       '<div class="stepper"><button data-act="target" data-delta="-1" aria-label="Méně">−</button><input id="f-target" type="text" inputmode="decimal" value="'+kg(target)+'" aria-label="Cíl v kilogramech"><button data-act="target" data-delta="1" aria-label="Více">+</button></div>' +
       '<p class="hint">V kilogramech. Podle toho se počítá, kolik ještě chybí.</p></div>' +
@@ -1083,16 +1113,26 @@ function viewOverview(){
         (target ? '<div class="progress" aria-hidden="true"><b style="width:'+pct+'%"></b></div><div class="s">'+(rest > 0 ? 'Chybí '+kg(rest)+' kg' : '✓ Hotovo')+'</div>' : '') +
         '</div>'+(ovYear === Y ? '<button class="add" data-act="go" data-href="#/v/'+h.id+'/krmeni">+ Krmit</button>' : '<span></span>')+'</div>';
     }).join("") + '</div>' : '<p class="muted">Všechna včelstva mají dost krmení. ✓</p>');
+  {
+    const body = html.slice(feedStart);
+    const sum = target ? done + ' z ' + hs.length + ' má dost' + (missing > 0 ? ', chybí ' + kg(missing) + ' kg' : '') : 'Zkrmeno ' + kg(total) + ' kg';
+    html = html.slice(0, feedStart) + fold("krmeni", "Krmení na zimu", sum, target && missing > 0, body);
+  }
 
   /* léčení */
+  const treatStart = html.length;
   const tr = hs.map(h => [h, treatsIn(h, ovYear)]);
   const treated = tr.filter(x => x[1].length), un = tr.filter(x => !x[1].length).map(x => x[0]);
   const byDrug = {};
   treated.forEach(x => new Set(x[1].map(r => r.drug)).forEach(d => { byDrug[d] = (byDrug[d] || 0) + 1; }));
-  html += '<h2>Léčení</h2><div class="card"><div class="stat">'+treated.length+' z '+hs.length+'</div><div class="muted">včelstev léčeno v roce '+ovYear+'</div>' +
+  html += '<div class="card"><div class="stat">'+treated.length+' z '+hs.length+'</div><div class="muted">včelstev léčeno v roce '+ovYear+'</div>' +
     (Object.keys(byDrug).length ? '<ul class="plain">' + Object.entries(byDrug).sort((a,b) => b[1]-a[1]).map(e => '<li><span>'+esc(e[0])+'</span><strong>'+hivesN(e[1])+'</strong></li>').join("") + '</ul>' : '') + '</div>';
   if(un.length) html += '<div class="card"><div class="t">Neléčená ('+un.length+')</div>' + numchips(un) +
     (ovYear === Y ? '<button class="btn honey" data-act="go" data-href="#/hromadne/leceni/nelecene">Zapsat léčení najednou</button>' : '') + '</div>';
+  {
+    const body = html.slice(treatStart);
+    html = html.slice(0, treatStart) + fold("leceni", "Léčení", treated.length + ' z ' + hs.length + ' léčeno' + (un.length ? ', ' + un.length + ' ' + plural(un.length, "neléčené", "neléčená", "neléčených") : ''), un.length > 0, body);
+  }
 
   /* med */
   if(DB.settings.honey){
@@ -1485,6 +1525,11 @@ document.addEventListener("click", e => {
 
   /* overview */
   if(a === "year"){ ovYear = Math.min(Y, ovYear + (+b.dataset.delta)); rerenderKeepScroll(); return; }
+  if(a === "fold"){
+    const k = b.dataset.key, wrap = b.parentElement, open = !ovOpen[k];
+    ovOpen[k] = open; wrap.classList.toggle("open", open); b.setAttribute("aria-expanded", String(open));
+    wrap.querySelector(".fold-body").hidden = !open; return;
+  }
   if(a === "ovmiss"){ ovOnlyMissing = b.dataset.value === "1"; rerenderKeepScroll(); return; }
   if(a === "target"){
     let n = num(val("f-target")); if(!isFinite(n)) n = DB.settings.feedTarget || 0;
