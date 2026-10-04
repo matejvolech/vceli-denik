@@ -1226,6 +1226,7 @@ const RE_ORD = new RegExp("\\b(" + byLen(ORD) + ")(?:i|y|a|e|eho|em|emu|im|imu)\
 const RE_NUMUL = /\b(\d+)\.?\s*(?:ul|ulu|vcelstvo|vcelstvu)\b/g;
 const RE_ORD2 = new RegExp("\\b(?:u|na|k|ve|v)\\s+(" + byLen(ORD) + ")(?:eho|emu|em|ym|e)\\b", "g");
 const RE_KA = new RegExp("\\b(" + byLen(KA_ALL) + ")(?:a|u|y|ou|e)\\b", "g");
+const RE_VERB = new RegExp("\\b(?:jdu|jdeme|ted|nyni)?\\s*(?:kontrolovat|zkontrolovat|kontroluj\\w*|kontrola|prohlizim|prohlidka|otviram|oteviram|otevru|na|k|ke)\\s+(?:ul\\w*\\s+|vcelstv\\w*\\s+)?(?:cislo\\s+|c\\.\\s*)?(\\d+[a-z]?|" + N_ALT + ")\\b(?!\\s*(?:kg|kil|l\\b|litr|ramk|ramec|ramc|plast|ulic|roztoc|klestik|dn|tydn|hod|minut|%|procent|stup))", "g");
 const RE_NEXT = /\b(?:dalsi|nasledujici)\s+(?:ul\w*|vcelstv\w*)\b|(?:^|[.!?\n]\s*)(?:dalsi|nasledujici)(?=\s*[.,:!?\n]|\s*$)/g;
 
 const POS = /^(vidim|vidime|videl|videla|videli|videt|viden\w*|vidi|nasel|nasla|nasli|nalez\w*|spatr\w*|zahled\w*|je|jsou|ano|mam|ma|maji|bezi|behala|behal|beha|klade|kladla|zaklada|zakladeno|zakladene|poradku|ok|zije|pritomn\w*|tady|vidno|videna|videno|potkal|nachazim)$/;
@@ -1251,7 +1252,8 @@ const DICT_DRUGS = [
   [/oxuvar/, "Oxuvar"], [/apiguard/, "Apiguard"], [/th?ymovar/, "Thymovar"], [/apivar/, "Apivar"], [/bioxal/, "Api-Bioxal"],
   [/stavelov|oxalov/, "Kyselina šťavelová"], [/mravenc/, "Kyselina mravenčí"], [/\bkyselin\w*/, "Kyselina"]
 ];
-const FILLER = /^(tak|tak dobre|dobre|dobry|hotovo|konec|to je vse|to je vsechno|a|no|jo|takze|jeste|potom|pak|ted)$/;
+const FILLER_W = new Set("tak dobre dobry dobra hotovo konec to je vse vsechno a no jo takze jeste potom pak ted hmm ehm jdu jdeme dal dale na k ke do kontrolovat zkontrolovat kontroluji kontroluju kontrolujeme kontrola prohlidka prohlidky prohlizim zaviram zavirame zavreno oteviram otviram otevreno dalsi ul ulu vcelstvo cislo se podivat zacinam zaciname koncim koncime tady tam ok jo jasne".split(" "));
+const FILLER = { test(s){ const w = s.split(/[^a-z0-9]+/).filter(Boolean); return !w.length || w.every(x => FILLER_W.has(x)); } };
 
 function parseClause(raw, c, out, ctx){
   // raw = původní text, c = normalizovaný text s čísly v číslicích
@@ -1374,6 +1376,7 @@ function parseDictation(text, hives, Y){
   RE_NUMUL.lastIndex = 0; while((m = RE_NUMUL.exec(N))){ add(m.index, m.index + m[0].length, m[1]); }
   RE_ORD2.lastIndex = 0; while((m = RE_ORD2.exec(N))){ const n = String(ORD[m[1]]); if(byNum(n)) add(m.index, m.index + m[0].length, n); }
   RE_KA.lastIndex = 0; while((m = RE_KA.exec(N))){ const n = String(KA_ALL[m[1]]); if(byNum(n)) add(m.index, m.index + m[0].length, n); }
+  RE_VERB.lastIndex = 0; while((m = RE_VERB.exec(N))){ const n = wordsToNumber(m[1]); if(byNum(n)) add(m.index, m.index + m[0].length, n); }
   RE_NEXT.lastIndex = 0; while((m = RE_NEXT.exec(N))){ add(m.index, m.index + m[0].length, "__next"); }
   list.forEach(h => {
     const nm = czNorm(String(h.name || "")).trim();
@@ -1425,7 +1428,7 @@ function parseDictation(text, hives, Y){
     out.src = segO.replace(/\s*\b(tečka|čárka|středník|nová věta|nový řádek)\b\s*/gi, ". ").replace(/(\.\s*){2,}/g, ". ").trim().replace(/^[,.:;\-–\s]+/, "").slice(0, 220);
     out.note = ctx.notes.filter((v, i, arr) => arr.indexOf(v) === i).join(", ");
     if(out.note) out.note = out.note.charAt(0).toUpperCase() + out.note.slice(1);
-    if(!any && !out.note && sg.num === "?") return;
+    if(sg.num === "?" && !any) return;
     const h = sg.num !== "?" ? byNum(sg.num) : null;
     const key = h ? h.id : "?" + results.length;
     if(byKey[key]){
@@ -1465,7 +1468,7 @@ function viewDict(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const body = '<h1>Mluvená prohlídka</h1>' +
     '<p class="muted" style="margin-top:-.4rem">Mluvte postupně o každém úlu a vždy začněte jeho číslem. Aplikace z textu připraví záznamy a vy je před uložením jen zkontrolujete.</p>' +
-    '<div class="note-box" style="margin:0 0 1.4rem"><strong>Například:</strong> „Úl dvanáct. Silné, devět rámků, matku jsem viděl, vajíčka jsou, zdravé. Úl třináct. Slabé, pět rámků, matku jsem neviděl, vajíčka taky ne, dal jsem tři kila těsta.“</div>' +
+    '<div class="note-box" style="margin:0 0 1.4rem"><strong>Například:</strong> „Číslo dvanáct. Silné, devět rámků, vidím matku, vajíčka jsou, zdravé. Číslo třináct. Slabé, pět rámků, matku jsem neviděl, vajíčka taky ne, dal jsem tři kila těsta.“<br><span class="muted" style="font-size:.88rem">Krátké slovo „úl“ diktování často vynechá, proto je spolehlivější říkat „číslo 12“, „včelstvo 12“ nebo „dvanáctka“.</span></div>' +
     '<div class="field"><label class="label" for="f-date">Datum prohlídky</label><input id="f-date" type="date" value="'+DICT.date+'"></div>' +
     '<div class="field"><label class="label" for="f-dict">Co jste u úlů viděli</label>' +
       '<textarea id="f-dict" class="dict" placeholder="Ťukněte sem a na klávesnici zvolte mikrofon 🎤">'+esc(DICT.text)+'</textarea>' +
